@@ -83,9 +83,14 @@ export default function Start() {
 
       <div className="start-content">
         <p className="start-kicker start-imprint">数字文旅勘验入口</p>
-        <h1 className="start-title start-imprint" data-testid="start-title">
-          <span>故宫叙境 ·</span>
-          <span>翻阅六百年</span>
+        <h1 className="start-title" data-testid="start-title">
+          <span className="start-title-line start-imprint">故宫叙境</span>
+          <span className="start-title-mark" aria-hidden="true">
+            <span className="start-title-rule" />
+            <span className="start-title-dot">·</span>
+            <span className="start-title-rule" />
+          </span>
+          <span className="start-title-line start-imprint">翻阅六百年</span>
         </h1>
 
         <p className="start-subtitle start-imprint">
@@ -95,12 +100,14 @@ export default function Start() {
 
         <button
           type="button"
-          className="start-enter-btn start-imprint"
+          className="start-enter-btn"
           onClick={handleEnter}
           aria-label="开始探索"
         >
-          <span>开始</span>
-          <span>探索</span>
+          <span className="start-enter-btn-label">
+            <span>开启</span>
+            <span>勘验</span>
+          </span>
         </button>
       </div>
 

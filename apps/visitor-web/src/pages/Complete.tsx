@@ -166,28 +166,38 @@ export default function Complete() {
               勘验数据
             </span>
           </div>
-          <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
-            {STAT_CARDS.map((stat) => (
-              <div
-                key={stat.key}
-                className="flex-shrink-0 w-[88px] rounded-lg p-3 text-center"
-                style={{
-                  background: '#EFEBE1',
-                  borderTop: '1px solid #D4CFC3',
-                  borderBottom: '1px solid #D4CFC3',
-                }}
-              >
-                <div className="text-ink font-display text-lg font-bold leading-none">
-                  {statValues[stat.key]}
+          <div
+            className="rounded-lg px-2 py-4"
+            style={{
+              background: '#EFEBE1',
+              borderTop: '1px solid #D4CFC3',
+              borderBottom: '1px solid #D4CFC3',
+            }}
+          >
+            <div className="grid grid-cols-4">
+              {STAT_CARDS.map((stat, i) => (
+                <div
+                  key={stat.key}
+                  className="px-2 text-center"
+                  style={{
+                    borderRight:
+                      i < STAT_CARDS.length - 1
+                        ? '1px solid rgba(43,41,38,0.08)'
+                        : 'none',
+                  }}
+                >
+                  <div className="text-ink font-display text-[24px] font-bold leading-none">
+                    {statValues[stat.key]}
+                  </div>
+                  <div className="text-ink-faint text-[11px] mt-2 leading-none tracking-wide">
+                    {stat.label}
+                  </div>
+                  <div className="text-ink-faint text-[10px] leading-none mt-1">
+                    {stat.unit}
+                  </div>
                 </div>
-                <div className="text-ink-faint text-[10px] mt-1.5 leading-none">
-                  {stat.label}
-                </div>
-                <div className="text-ink-faint text-[9px] leading-none mt-0.5">
-                  {stat.unit}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -216,14 +226,9 @@ export default function Complete() {
                 return (
                   <div key={item.id} className="flex flex-col items-center">
                     <div
-                      className={`relative w-full aspect-square rounded-md overflow-hidden transition-all duration-500 ${
+                      className={`relative w-full aspect-square flex items-center justify-center transition-all duration-500 ${
                         unlocked && revealed ? 'opacity-100' : 'opacity-40'
                       }`}
-                      style={{
-                        outline: '1px solid rgba(43,41,38,0.1)',
-                        outlineOffset: '-1px',
-                        background: unlocked ? '#FFFFFF' : '#E8E4DA',
-                      }}
                     >
                       {unlocked ? (
                         <img
@@ -235,8 +240,13 @@ export default function Complete() {
                           draggable={false}
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-ink-faint/30 text-2xl font-display select-none">
+                        <div
+                          className="w-[78%] h-[78%] rounded-full flex items-center justify-center"
+                          style={{
+                            border: '1px dashed rgba(43,41,38,0.18)',
+                          }}
+                        >
+                          <span className="text-ink-faint/40 text-2xl font-display select-none">
                             ?
                           </span>
                         </div>
@@ -356,13 +366,7 @@ export default function Complete() {
                   return (
                     <div
                       key={item.id}
-                      className={`aspect-square rounded-md flex items-center justify-center overflow-hidden ${
-                        unlocked ? 'bg-white' : 'bg-paper-deep/50'
-                      }`}
-                      style={{
-                        outline: '1px solid rgba(43,41,38,0.08)',
-                        outlineOffset: '-1px',
-                      }}
+                      className="aspect-square flex items-center justify-center"
                     >
                       {unlocked ? (
                         <img
@@ -372,9 +376,16 @@ export default function Complete() {
                           draggable={false}
                         />
                       ) : (
-                        <span className="text-ink-faint/20 text-sm font-display select-none">
-                          ?
-                        </span>
+                        <div
+                          className="w-[78%] h-[78%] rounded-full flex items-center justify-center"
+                          style={{
+                            border: '1px dashed rgba(43,41,38,0.16)',
+                          }}
+                        >
+                          <span className="text-ink-faint/30 text-sm font-display select-none">
+                            ?
+                          </span>
+                        </div>
                       )}
                     </div>
                   )
