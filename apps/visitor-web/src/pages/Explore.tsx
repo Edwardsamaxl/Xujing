@@ -254,15 +254,31 @@ export default function Explore() {
                   />
                 </div>
 
-                {/* Content mask: left area for text, fades to reveal palace */}
-                <div className="absolute inset-y-0 left-0 w-[80%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6] via-[60%] to-transparent" />
+                {interestTag === '历史' ? (
+                  <>
+                    {/* Content mask: left area for text, fades to reveal palace */}
+                    <div className="absolute inset-y-0 left-0 w-[64%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6]/95 to-transparent" />
 
-                {/* Left vertical bookmark */}
-                <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center writing-vertical shadow-sm">
-                  <span className="font-display text-[12px] tracking-[0.25em] text-[#f4ead8]">
-                    {art.stampSub}
-                  </span>
-                </div>
+                    {/* Left vertical bookmark */}
+                    <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center writing-vertical shadow-sm">
+                      <span className="font-display text-[13px] tracking-[0.25em] text-[#f4ead8]">
+                        {art.stampSub}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    {/* Content mask */}
+                    <div className="absolute inset-y-0 left-0 w-[80%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6]/60 via-[40%] to-transparent" />
+
+                    {/* Left vertical bookmark */}
+                    <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center writing-vertical shadow-sm">
+                      <span className="font-display text-[12px] tracking-[0.25em] text-[#f4ead8]">
+                        {art.stampSub}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 {/* Main text content */}
                 <div className="absolute inset-y-0 left-[16%] right-[22%] flex flex-col justify-center py-3">
