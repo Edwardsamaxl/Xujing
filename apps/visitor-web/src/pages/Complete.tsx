@@ -1,163 +1,256 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getVisitorId, clearVisitor, getCompletedSpots, isNarrativeUnlocked } from '../utils/storage'
-import { SPOTS } from '../data/spots'
+import { toPng } from 'html-to-image'
+import {
+  getVisitorId,
+  clearVisitor,
+  getCompletedSpots,
+  getUnlockedNarratives,
+  isNarrativeUnlocked,
+} from '../utils/storage'
 
-interface RouteSummary {
-  spots: { name: string; id: string }[]
-  rewards: { name: string; imageUrl?: string }[]
+// ---------- Types ----------
+
+interface GridItem {
+  id: string
+  label: string
+  medalPath: string
 }
 
-const MOCK_SUMMARY: RouteSummary = {
-  spots: [
-    { name: '钟表馆', id: 'spot-clock' },
-    { name: '珍宝馆', id: 'spot-treasure' },
-    { name: '武英殿·陶瓷馆', id: 'spot-ceramic' },
-    { name: '延禧宫', id: 'spot-yanxi' },
-    { name: '寿康宫', id: 'spot-shoukang' },
-    { name: '慈宁宫', id: 'spot-cining' },
-  ],
-  rewards: [
-    { name: '钟表馆密档' },
-    { name: '寿康宫密档' },
-    { name: '慈宁宫密档' },
-  ],
+// ---------- Constants ----------
+
+const GRID_ITEMS: GridItem[] = [
+  { id: 'spot-clock', label: '钟表馆', medalPath: '/assets/medal/钟表馆.png' },
+  { id: 'spot-treasure', label: '珍宝馆', medalPath: '/assets/medal/珍宝馆.png' },
+  { id: 'spot-ceramic', label: '陶瓷馆', medalPath: '/assets/medal/陶瓷馆.png' },
+  { id: 'spot-yanxi', label: '延禧宫', medalPath: '/assets/medal/延禧宫.png' },
+  { id: 'spot-shoukang', label: '寿康宫', medalPath: '/assets/medal/寿康宫.png' },
+  { id: 'spot-cining', label: '慈宁宫', medalPath: '/assets/medal/慈宁宫.png' },
+]
+
+const STAT_CARDS = [
+  { label: '勘验宫殿', unit: '座', key: 'spots' as const },
+  { label: '收集密档', unit: '张', key: 'rewards' as const },
+  { label: '步行里程', unit: '米', key: 'distance' as const },
+  { label: '总耗时', unit: '分', key: 'time' as const },
+]
+
+// ---------- Hooks ----------
+
+function useCountUp(target: number, duration = 1000, delay = 0) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (target <= 0) {
+      setValue(0)
+      return
+    }
+    const timer = setTimeout(() => {
+      const startTime = Date.now()
+      const tick = () => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const eased = 1 - Math.pow(1 - progress, 4)
+        setValue(Math.round(target * eased))
+        if (progress < 1) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [target, duration, delay])
+  return value
 }
 
-const ROUTES = [
-  { id: 'deep', name: '深度考古线' },
-  { id: 'full', name: '全域打卡线' },
-  { id: 'express', name: '限时速览线' },
-]
-
-const SOUVENIRS = [
-  { name: '故宫折扇', price: '¥68' },
-  { name: '千里江山图丝巾', price: '¥128' },
-  { name: '紫禁祥瑞书签', price: '¥39' },
-]
+// ---------- Main Page ----------
 
 export default function Complete() {
   const navigate = useNavigate()
-  const [summary, setSummary] = useState<RouteSummary | null>(null)
   const [entered, setEntered] = useState(false)
-  const completedSpots = getCompletedSpots()
-  const completedSet = new Set(completedSpots)
+  const [showShare, setShowShare] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [revealedItems, setRevealedItems] = useState<Set<string>>(new Set())
+  const posterRef = useRef<HTMLDivElement>(null)
 
+  const completedSpots = getCompletedSpots()
+  const unlockedNarratives = getUnlockedNarratives()
+  const spotCount = completedSpots.length
+  const rewardCount = unlockedNarratives.length
+  const distance = spotCount > 1 ? (spotCount - 1) * 320 : spotCount * 160
+  const time = spotCount * 20 + Math.max(0, spotCount - 1) * 5
+
+  const spotCountAnim = useCountUp(spotCount, 800, 300)
+  const rewardCountAnim = useCountUp(rewardCount, 800, 400)
+  const distanceAnim = useCountUp(distance, 800, 500)
+  const timeAnim = useCountUp(time, 800, 600)
+
+  const statValues = {
+    spots: spotCountAnim,
+    rewards: rewardCountAnim,
+    distance: distanceAnim,
+    time: timeAnim,
+  }
+
+  // Auth check + page enter
   useEffect(() => {
     const visitorId = getVisitorId()
     if (!visitorId) {
       navigate('/')
       return
     }
-    fetch(`/api/summary?visitorId=${visitorId}`)
-      .then((r) => {
-        if (!r.ok) throw new Error('API error')
-        return r.json()
-      })
-      .then((data) => {
-        setSummary(data)
-        setTimeout(() => setEntered(true), 50)
-      })
-      .catch(() => {
-        setSummary(MOCK_SUMMARY)
-        setTimeout(() => setEntered(true), 50)
-      })
+    const t = setTimeout(() => setEntered(true), 50)
+    return () => clearTimeout(t)
   }, [navigate])
 
-  const handleRestart = () => {
+  // Staggered medal reveal
+  useEffect(() => {
+    if (!entered) return
+    const unlocked = GRID_ITEMS.filter((item) => isNarrativeUnlocked(item.id))
+    const timers: ReturnType<typeof setTimeout>[] = []
+    unlocked.forEach((item, index) => {
+      const t = setTimeout(() => {
+        setRevealedItems((prev) => new Set([...prev, item.id]))
+      }, 500 + index * 120)
+      timers.push(t)
+    })
+    return () => timers.forEach(clearTimeout)
+  }, [entered])
+
+  const handleRestart = useCallback(() => {
     clearVisitor()
     navigate('/')
-  }
+  }, [navigate])
 
-  const spots = summary?.spots ?? []
-  const rewards = summary?.rewards ?? []
+  const handleSavePoster = useCallback(async () => {
+    if (!posterRef.current) return
+    setSaving(true)
+    try {
+      const dataUrl = await toPng(posterRef.current, {
+        pixelRatio: 2,
+        backgroundColor: '#F7F4ED',
+      })
+      const link = document.createElement('a')
+      link.download = `故宫勘验纪念-${Date.now()}.png`
+      link.href = dataUrl
+      link.click()
+    } catch (err) {
+      console.error('海报生成失败:', err)
+      alert('海报生成失败，请重试')
+    } finally {
+      setSaving(false)
+    }
+  }, [])
 
-  // Duoboge grid: 3x3 layout with varying sizes
-  const GRID_ITEMS = [
-    { id: 'spot-clock', size: 'large' },
-    { id: 'spot-treasure', size: 'small' },
-    { id: 'spot-ceramic', size: 'small' },
-    { id: 'spot-yanxi', size: 'small' },
-    { id: 'spot-shoukang', size: 'large' },
-    { id: 'spot-cining', size: 'small' },
-  ]
+  const posterSpotCount = GRID_ITEMS.filter((item) =>
+    isNarrativeUnlocked(item.id)
+  ).length
 
   return (
-    <div className="flex min-h-screen flex-col bg-paper px-5 pt-10 pb-8">
-      <div className={`mx-auto w-full max-w-[480px] transition-all duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-        {/* Scroll header decoration */}
-        <div className="relative h-[80px] overflow-hidden rounded-t-xl mb-6 bg-gradient-to-b from-paper-deep via-paper to-paper">
-          <img src="/assets/digital-archive/reward-scroll-header.png" alt="" className="absolute inset-0 w-full h-full object-cover opacity-30 mix-blend-multiply" />
-          <div className="absolute inset-0 flex items-end justify-center pb-3">
-            <p className="text-gold/80 text-[11px] tracking-[0.15em] font-serif uppercase">结案卷宗</p>
+    <div className="min-h-screen bg-paper pb-8">
+      <div
+        className={`mx-auto w-full max-w-[480px] px-5 pt-10 transition-all duration-500 ease-out ${
+          entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
+        }`}
+      >
+        {/* ===== Title ===== */}
+        <h1 className="font-display text-[28px] text-ink text-center tracking-[0.04em] leading-[1.3] mb-2">
+          密档寻踪·已完成
+        </h1>
+        <p className="text-center text-[16px] leading-[1.65] text-ink-light mb-8">
+          你穿越了 {spotCountAnim} 座宫殿，找到了 {rewardCountAnim} 条隐藏线索
+        </p>
+
+        {/* ===== Stats ===== */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-4 bg-cinnabar rounded-full" />
+            <span className="text-[13px] text-ink-light tracking-[0.04em]">
+              勘验数据
+            </span>
+          </div>
+          <div className="flex gap-2 overflow-x-auto no-scrollbar py-1">
+            {STAT_CARDS.map((stat) => (
+              <div
+                key={stat.key}
+                className="flex-shrink-0 w-[88px] rounded-lg p-3 text-center"
+                style={{
+                  background: '#EFEBE1',
+                  borderTop: '1px solid #D4CFC3',
+                  borderBottom: '1px solid #D4CFC3',
+                }}
+              >
+                <div className="text-ink font-display text-lg font-bold leading-none">
+                  {statValues[stat.key]}
+                </div>
+                <div className="text-ink-faint text-[10px] mt-1.5 leading-none">
+                  {stat.label}
+                </div>
+                <div className="text-ink-faint text-[9px] leading-none mt-0.5">
+                  {stat.unit}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* Title */}
-        <h1 className="text-gold-shimmer font-display text-[26px] text-center mb-2">
-          叙境寻踪 · 已结案
-        </h1>
-
-        <p className="text-center text-[14px] leading-[1.6] text-ink-dim mb-1">
-          你穿越了 {spots.length} 座宫殿，收集了 {rewards.length} 张密档卡片
-        </p>
-
-        {/* Duobaoge Medal Wall - 3x3 Grid */}
-        <div className="mb-8 mt-6">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-4 bg-gold/60 rounded-full" />
-            <span className="text-[13px] text-gold/80 tracking-[0.04em] font-display">多宝格藏宝阁</span>
+        {/* ===== Medal Gallery ===== */}
+        <div className="mb-8">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-1 h-4 bg-cinnabar rounded-full" />
+            <span className="text-[13px] text-ink-light tracking-[0.04em]">
+              勋章藏宝阁
+            </span>
           </div>
 
-          {/* Wooden texture background placeholder */}
-          <div className="rounded-xl border border-scroll-line/50 bg-paper-deep p-4"
-            style={{ background: 'linear-gradient(135deg, #EFEBE1 0%, #E8E4DA 100%)' }}
+          <div
+            className="rounded-lg p-5"
+            style={{
+              background: '#EFEBE1',
+              borderTop: '1px solid #D4CFC3',
+              borderBottom: '1px solid #D4CFC3',
+            }}
           >
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-3">
               {GRID_ITEMS.map((item) => {
-                const isUnlocked = isNarrativeUnlocked(item.id)
-                const spot = SPOTS[item.id]
-                if (!spot) return null
+                const unlocked = isNarrativeUnlocked(item.id)
+                const revealed = revealedItems.has(item.id)
 
-                if (item.size === 'large') {
-                  return (
-                    <div key={item.id} className="col-span-1 row-span-2">
-                      {isUnlocked ? (
-                        <div className="h-full rounded-lg border border-gold/30 bg-paper flex flex-col items-center justify-center p-3 shadow-sm"
-                          style={{ minHeight: '140px' }}
-                        >
-                          {/* Medal placeholder */}
-                          <div className="w-12 h-12 rounded-full border-2 border-gold/40 flex items-center justify-center mb-2 bg-gradient-to-br from-paper-deep to-paper">
-                            <span className="text-gold font-display text-sm">{spot.shortName.charAt(0)}</span>
-                          </div>
-                          <p className="text-[12px] font-display text-ink text-center">{spot.name}</p>
-                          <div className="mt-2 w-6 h-6 rounded-full border border-cinnabar/40 flex items-center justify-center rotate-[-12deg]">
-                            <span className="text-cinnabar/70 font-display text-[7px]">勘</span>
-                          </div>
-                        </div>
+                return (
+                  <div key={item.id} className="flex flex-col items-center">
+                    <div
+                      className={`relative w-full aspect-square rounded-md overflow-hidden transition-all duration-500 ${
+                        unlocked && revealed ? 'opacity-100' : 'opacity-40'
+                      }`}
+                      style={{
+                        outline: '1px solid rgba(43,41,38,0.1)',
+                        outlineOffset: '-1px',
+                        background: unlocked ? '#F7F4ED' : '#E8E4DA',
+                      }}
+                    >
+                      {unlocked ? (
+                        <img
+                          src={item.medalPath}
+                          alt={`${item.label}勋章`}
+                          className={`w-full h-full object-contain p-1 transition-transform duration-500 ${
+                            revealed ? 'scale-100' : 'scale-90'
+                          }`}
+                          draggable={false}
+                        />
                       ) : (
-                        <div className="h-full rounded-lg border border-dashed border-scroll-line/40 bg-paper/50 flex flex-col items-center justify-center" style={{ minHeight: '140px' }}>
-                          <span className="text-ink-faint/30 text-xl">?</span>
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-ink-faint/30 text-2xl font-display select-none">
+                            ?
+                          </span>
                         </div>
                       )}
                     </div>
-                  )
-                }
-
-                return (
-                  <div key={item.id} className="col-span-1">
-                    {isUnlocked ? (
-                      <div className="rounded-lg border border-gold/20 bg-paper flex flex-col items-center justify-center p-2 shadow-sm" style={{ minHeight: '66px' }}>
-                        <div className="w-8 h-8 rounded-full border border-gold/30 flex items-center justify-center mb-1 bg-gradient-to-br from-paper-deep to-paper">
-                          <span className="text-gold/80 font-display text-[10px]">{spot.shortName.charAt(0)}</span>
-                        </div>
-                        <p className="text-[10px] text-ink text-center leading-tight">{spot.name}</p>
-                      </div>
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-scroll-line/40 bg-paper/50 flex items-center justify-center" style={{ minHeight: '66px' }}>
-                        <span className="text-ink-faint/20 text-sm">?</span>
-                      </div>
-                    )}
+                    <span
+                      className={`text-[11px] mt-1.5 transition-opacity duration-300 ${
+                        unlocked && revealed
+                          ? 'opacity-100 text-ink'
+                          : 'opacity-40 text-ink-faint'
+                      }`}
+                    >
+                      {item.label}
+                    </span>
                   </div>
                 )
               })}
@@ -165,72 +258,182 @@ export default function Complete() {
           </div>
         </div>
 
-        {/* Route review */}
-        <div className="card-elevated rounded-xl p-5 mb-6">
+        {/* ===== Route Review ===== */}
+        <div
+          className="rounded-lg p-5 mb-6"
+          style={{
+            background: '#EFEBE1',
+            borderTop: '1px solid #D4CFC3',
+            borderBottom: '1px solid #D4CFC3',
+          }}
+        >
           <div className="flex items-center gap-2 mb-4">
-            <div className="w-1 h-4 bg-gold/60 rounded-full" />
-            <span className="text-[13px] text-gold/80 tracking-[0.04em] font-display">路线回顾</span>
+            <div className="w-1 h-4 bg-cinnabar rounded-full" />
+            <span className="text-[13px] text-ink-light tracking-[0.04em]">
+              路线回顾
+            </span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[13px] text-ink-dim">
-            {spots.map((spot, i) => (
-              <span key={spot.id} className="flex items-center">
-                <span className={`${completedSet.has(spot.id) ? 'text-ink font-medium' : ''}`}>{spot.name}</span>
-                {i < spots.length - 1 && (
-                  <svg className="mx-1 h-3 w-3 text-ink-faint/30" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                )}
-              </span>
-            ))}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[13px] text-ink-light">
+            {GRID_ITEMS.map((item, i) => {
+              const done = isNarrativeUnlocked(item.id)
+              return (
+                <span key={item.id} className="flex items-center">
+                  <span className={done ? 'text-ink font-medium' : ''}>{item.label}</span>
+                  {i < GRID_ITEMS.length - 1 && (
+                    <svg
+                      className="mx-1 h-3 w-3 text-ink-faint/30"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  )}
+                </span>
+              )
+            })}
           </div>
         </div>
 
-        {/* Souvenirs */}
-        <div className="card-elevated rounded-xl p-5 mt-6 mb-6">
-          <p className="text-gold font-medium text-[15px] mb-4">为你推荐的故宫文创</p>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
-            {SOUVENIRS.map((item) => (
-              <div key={item.name} className="w-[120px] flex-shrink-0">
-                <div className="aspect-square bg-paper-deep rounded-lg mb-2" />
-                <p className="text-[12px] text-ink font-medium truncate">{item.name}</p>
-                <p className="text-[11px] text-gold">{item.price}</p>
-              </div>
-            ))}
-          </div>
-          <button className="mt-3 h-10 w-full rounded-full bg-cinnabar text-white text-[13px] font-medium transition-all active:scale-[0.96]">
-            去购买
-          </button>
-        </div>
-
-        {/* Route switch */}
-        <div className="flex gap-2 mb-6">
-          {ROUTES.map((route) => (
-            <button
-              key={route.id}
-              className="flex-1 h-10 px-2 rounded-full border border-scroll-line text-[13px] text-ink-dim hover:border-cinnabar hover:text-cinnabar transition-all"
-            >
-              {route.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Buttons */}
+        {/* ===== Action Buttons ===== */}
         <div className="space-y-3">
           <button
-            onClick={() => alert('纪念卡生成中...')}
-            className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.96] hover:shadow-[0_4px_20px_rgba(163,38,38,0.25)]"
+            onClick={() => setShowShare(true)}
+            className="h-12 w-full rounded-full bg-cinnabar text-[16px] font-medium text-paper tracking-[0.04em] transition-transform duration-150 ease-out active:scale-[0.96]"
           >
             生成纪念卡
           </button>
 
           <button
             onClick={handleRestart}
-            className="h-12 w-full rounded-full border border-cinnabar bg-transparent text-[15px] font-medium text-cinnabar tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.96]"
+            className="h-12 w-full rounded-full border border-cinnabar bg-transparent text-[16px] font-medium text-cinnabar tracking-[0.04em] transition-transform duration-150 ease-out active:scale-[0.96]"
           >
             再探一次
           </button>
         </div>
       </div>
+
+      {/* ===== Share Poster Modal ===== */}
+      {showShare && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-[340px]">
+            {/* Poster */}
+            <div
+              ref={posterRef}
+              className="w-[320px] mx-auto rounded-lg p-6 relative overflow-hidden"
+              style={{ background: '#F7F4ED' }}
+            >
+              {/* Paper grain */}
+              <div
+                className="absolute inset-0 opacity-[0.03]"
+                style={{
+                  backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+                  backgroundRepeat: 'repeat',
+                  backgroundSize: '128px',
+                }}
+              />
+
+              {/* Header */}
+              <div className="relative z-10 text-center mb-4">
+                <p className="text-gold text-[10px] tracking-[0.25em] font-serif">
+                  故宫私人馆藏展
+                </p>
+                <h2 className="text-ink font-display text-xl mt-1 tracking-wider">
+                  勘验纪念卡
+                </h2>
+                <div className="mt-2 mx-auto w-8 h-px bg-scroll-line" />
+              </div>
+
+              {/* Medal grid */}
+              <div className="relative z-10 grid grid-cols-3 gap-2 mb-4">
+                {GRID_ITEMS.map((item) => {
+                  const unlocked = isNarrativeUnlocked(item.id)
+                  return (
+                    <div
+                      key={item.id}
+                      className={`aspect-square rounded-md flex items-center justify-center overflow-hidden ${
+                        unlocked ? 'bg-paper-deep' : 'bg-paper-deep/50'
+                      }`}
+                      style={{
+                        outline: '1px solid rgba(43,41,38,0.08)',
+                        outlineOffset: '-1px',
+                      }}
+                    >
+                      {unlocked ? (
+                        <img
+                          src={item.medalPath}
+                          alt={item.label}
+                          className="w-full h-full object-contain p-1"
+                          draggable={false}
+                        />
+                      ) : (
+                        <span className="text-ink-faint/20 text-sm font-display select-none">
+                          ?
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* Stats */}
+              <div className="relative z-10 flex justify-center gap-6 mb-4">
+                <div className="text-center">
+                  <div className="text-ink font-display text-2xl font-bold">
+                    {posterSpotCount}
+                  </div>
+                  <div className="text-ink-faint text-[10px] mt-0.5">宫殿</div>
+                </div>
+                <div className="w-px bg-scroll-line" />
+                <div className="text-center">
+                  <div className="text-ink font-display text-2xl font-bold">
+                    {rewardCount}
+                  </div>
+                  <div className="text-ink-faint text-[10px] mt-0.5">密档</div>
+                </div>
+              </div>
+
+              {/* Caption */}
+              <p className="relative z-10 text-ink-light text-[12px] text-center leading-relaxed px-2">
+                我在故宫完成了 {posterSpotCount} 处历史碎片的溯源修复，
+                <br />
+                这是我留给紫禁城的数字印记。
+              </p>
+
+              {/* Footer */}
+              <div className="relative z-10 mt-4 flex items-center gap-2">
+                <div className="flex-1 h-px bg-scroll-line" />
+                <span className="text-ink-faint text-[9px] font-serif tracking-wider">
+                  叙境 Xujing
+                </span>
+                <div className="flex-1 h-px bg-scroll-line" />
+              </div>
+            </div>
+
+            {/* Modal buttons */}
+            <div className="mt-4 space-y-2.5">
+              <button
+                onClick={handleSavePoster}
+                disabled={saving}
+                className="h-12 w-full rounded-full bg-cinnabar text-[16px] font-medium text-paper tracking-wide transition-transform active:scale-[0.96] disabled:opacity-50"
+              >
+                {saving ? '生成中...' : '保存到相册'}
+              </button>
+              <button
+                onClick={() => setShowShare(false)}
+                className="h-12 w-full rounded-full border border-cinnabar bg-transparent text-[16px] font-medium text-cinnabar tracking-wide transition-transform active:scale-[0.96]"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -24,8 +24,10 @@ describe('Complete', () => {
 
     renderWithRouter(<Complete />, { initialEntries: ['/complete'] })
 
-    await waitFor(() => expect(screen.getByText('叙境寻踪 · 已结案')).toBeInTheDocument())
-    expect(screen.getAllByText('奉先殿·钟表馆').length).toBeGreaterThanOrEqual(1)
+    await waitFor(() => expect(screen.getByText('密档寻踪·已完成')).toBeInTheDocument())
+    expect(screen.getAllByText('钟表馆').length).toBeGreaterThanOrEqual(1)
+    expect(screen.getByText('生成纪念卡')).toBeInTheDocument()
+    expect(screen.getByText('勘验数据')).toBeInTheDocument()
 
     await userEvent.click(screen.getByText('再探一次'))
 

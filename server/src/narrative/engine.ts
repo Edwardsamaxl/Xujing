@@ -1,9 +1,11 @@
 import { planRoute } from './route-planner'
-import { buildPrompt } from './prompts/task-generation'
+import { buildThreeStepPrompt } from './prompts/task-generation'
 import {
   getVisitorById,
   getCheckInsByVisitor,
   getTemplate,
+  getTopFactsBySpot,
+  getConnectionsFrom,
 } from '../data'
 
 export interface NarrativeResponse {
@@ -36,53 +38,76 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
     allSpots,
   })
 
-  // Fetch template for this spot + interest
+  // Determine current spot
+  let currentSpot = allSpots.find(s => s.id === visitor.currentSpotId)
+  if (!currentSpot && checkIns.length > 0) {
+    const lastCheckIn = checkIns[checkIns.length - 1]
+    currentSpot = allSpots.find(s => s.id === lastCheckIn.spotId)
+  }
+  if (!currentSpot) {
+    currentSpot = allSpots[0]
+  }
+
+  // Fetch knowledge base
   const primaryInterest = visitor.interestTags[0] || '历史'
   const template = await getTemplate(nextSpot.id, primaryInterest)
+  const facts = await getTopFactsBySpot(currentSpot.id, 3)
+  const connections = await getConnectionsFrom(currentSpot.id)
 
-  const baseContent = template?.baseContent || `欢迎来到${nextSpot.name}。`
-  const title = template?.title || nextSpot.name
-  const flavorText = template?.flavorText || ''
+  // Find best connection to nextSpot
+  const connection = connections.find(c => c.toSpotId === nextSpot.id)
 
-  // Call DeepSeek to generate personalized narrative
-  const prompt = buildPrompt({
-    title,
-    baseContent,
-    flavorText,
-    spotName: nextSpot.name,
-    spotStatus: nextSpot.status,
-    interestTags: visitor.interestTags,
-    completedSpotIds: Array.from(completedSpotIds),
-    totalSpots: allSpots.length,
-  })
+  // Fallback narrative parts for when LLM fails
+  const fallbackTitle = template?.title || nextSpot.name
+  const fallbackContent = template?.baseContent || `欢迎来到${nextSpot.name}。`
 
-  const narrativeText = await callDeepSeek(prompt)
+  // Try LLM generation
+  let narrativeText: string
+  try {
+    const prompt = buildThreeStepPrompt({
+      currentSpotName: currentSpot.name,
+      currentSpotFacts: facts.map(f => f.content),
+      targetSpotName: nextSpot.name,
+      targetSpotTeaser: nextSpot.description || '',
+      connectionHookFact: connection?.hookFact || `${nextSpot.name}与${currentSpot.name}有着深厚的历史渊源。`,
+      connectionPayoffText: connection?.payoffText || `去${nextSpot.name}，你会发现更多隐藏的线索。`,
+      interestTag: primaryInterest,
+      completedCount: completedSpotIds.size,
+      totalCount: allSpots.filter(s => s.type === 'cold').length,
+      crowdStatus: currentSpot.status === 'crowded' ? 'crowded' : 'smooth',
+      targetStatus: nextSpot.status,
+      rewardHint: undefined,
+    })
 
-  // 只统计目的地（cold spots）
+    narrativeText = await callDeepSeek(prompt)
+
+    // Validate output length
+    if (narrativeText.length < 50 || narrativeText.length > 400) {
+      throw new Error('LLM output length invalid')
+    }
+  } catch (e) {
+    console.error('LLM generation failed, using fallback:', e)
+    // Fallback: use template + simple hook
+    narrativeText = generateFallbackNarrative({
+      baseContent: fallbackContent,
+      nextSpotName: nextSpot.name,
+      connectionPayoffText: connection?.payoffText,
+      flavorText: template?.flavorText,
+    })
+  }
+
+  // Stats
   const targetSpots = allSpots.filter(s => s.type === 'cold')
   const completedTargets = targetSpots.filter(s => completedSpotIds.has(s.id))
-
-  // Check if this is the last spot
   const isLast = completedTargets.length + 1 >= targetSpots.length
   const reward = campaign.rewards[0]
-
-  // Determine current spot name from visitor's last check-in
-  let currentSpotName = '故宫'
-  if (visitor.currentSpotId) {
-    const currentSpot = allSpots.find(s => s.id === visitor.currentSpotId)
-    if (currentSpot) currentSpotName = currentSpot.name
-  } else if (checkIns.length > 0) {
-    const lastCheckIn = checkIns[checkIns.length - 1]
-    const lastSpot = allSpots.find(s => s.id === lastCheckIn.spotId)
-    if (lastSpot) currentSpotName = lastSpot.name
-  }
 
   const taskIndex = completedTargets.length
   const totalTasks = targetSpots.length
 
   return {
-    currentSpotName,
-    narrativeTitle: title,
+    currentSpotName: currentSpot.name,
+    narrativeTitle: fallbackTitle,
     narrativeText,
     destinationHint: `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, ''),
     nextSpotId: nextSpot.id,
@@ -95,12 +120,27 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
   }
 }
 
+interface FallbackCtx {
+  baseContent: string
+  nextSpotName: string
+  connectionPayoffText?: string
+  flavorText?: string | null
+}
+
+function generateFallbackNarrative(ctx: FallbackCtx): string {
+  const { baseContent, nextSpotName, connectionPayoffText, flavorText } = ctx
+  // Take first sentence of baseContent as认知重构
+  const firstSentence = baseContent.split('。')[0] + '。'
+  const payoff = connectionPayoffText || `此时${nextSpotName}正显得格外静谧，或许那里藏着这段故事的另一半。`
+
+  return `${firstSentence}${flavorText ? `「${flavorText}」` : ''}${payoff}`
+}
+
 async function callDeepSeek(prompt: string): Promise<string> {
   const apiKey = process.env.DEEPSEEK_API_KEY
   const baseUrl = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
   if (!apiKey) {
-    // Fallback: return a readable placeholder when API key is not configured
-    return `${prompt.slice(0, 80)}...（请在 .env 中配置 DEEPSEEK_API_KEY 以启用 AI 生成）`
+    throw new Error('DEEPSEEK_API_KEY not configured')
   }
 
   const res = await fetch(`${baseUrl}/chat/completions`, {
@@ -123,4 +163,89 @@ async function callDeepSeek(prompt: string): Promise<string> {
 
   const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
   return data.choices?.[0]?.message?.content?.trim() || '请继续探索。'
+}
+
+// 为指定当前点位生成叙事（含软导流钩子）
+export async function generateSpotNarrative(
+  visitorId: string,
+  currentSpotId: string,
+  interestTag?: string
+): Promise<NarrativeResponse> {
+  const visitor = await getVisitorById(visitorId)
+  if (!visitor) throw new Error('Visitor not found')
+
+  const campaign = visitor.campaign
+  const allSpots = campaign.spots
+  const checkIns = await getCheckInsByVisitor(visitorId)
+  const completedSpotIds = new Set(checkIns.map(c => c.spotId))
+
+  const currentSpot = allSpots.find(s => s.id === currentSpotId)
+  if (!currentSpot) throw new Error('Spot not found')
+
+  // Decide next spot via route planner
+  const nextSpot = await planRoute({
+    interestTags: visitor.interestTags,
+    completedSpotIds,
+    allSpots,
+  })
+
+  const primaryInterest = interestTag || visitor.interestTags[0] || '历史'
+  const template = await getTemplate(currentSpotId, primaryInterest)
+  const facts = await getTopFactsBySpot(currentSpotId, 3)
+  const connections = await getConnectionsFrom(currentSpotId)
+  const connection = connections.find(c => c.toSpotId === nextSpot.id)
+
+  const fallbackTitle = template?.title || currentSpot.name
+  const fallbackContent = template?.baseContent || `欢迎来到${currentSpot.name}。`
+
+  let narrativeText: string
+  try {
+    const prompt = buildThreeStepPrompt({
+      currentSpotName: currentSpot.name,
+      currentSpotFacts: facts.map(f => f.content),
+      targetSpotName: nextSpot.name,
+      targetSpotTeaser: nextSpot.description || '',
+      connectionHookFact: connection?.hookFact || `${nextSpot.name}与${currentSpot.name}有着深厚的历史渊源。`,
+      connectionPayoffText: connection?.payoffText || `去${nextSpot.name}，你会发现更多隐藏的线索。`,
+      interestTag: primaryInterest,
+      completedCount: completedSpotIds.size,
+      totalCount: allSpots.filter(s => s.type === 'cold').length,
+      crowdStatus: currentSpot.status === 'crowded' ? 'crowded' : 'smooth',
+      targetStatus: nextSpot.status,
+      rewardHint: undefined,
+    })
+
+    narrativeText = await callDeepSeek(prompt)
+
+    if (narrativeText.length < 50 || narrativeText.length > 400) {
+      throw new Error('LLM output length invalid')
+    }
+  } catch (e) {
+    console.error('LLM generation failed, using fallback:', e)
+    narrativeText = generateFallbackNarrative({
+      baseContent: fallbackContent,
+      nextSpotName: nextSpot.name,
+      connectionPayoffText: connection?.payoffText,
+      flavorText: template?.flavorText,
+    })
+  }
+
+  const targetSpots = allSpots.filter(s => s.type === 'cold')
+  const completedTargets = targetSpots.filter(s => completedSpotIds.has(s.id))
+  const isLast = completedTargets.length + 1 >= targetSpots.length
+  const reward = campaign.rewards[0]
+
+  return {
+    currentSpotName: currentSpot.name,
+    narrativeTitle: fallbackTitle,
+    narrativeText,
+    destinationHint: `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, ''),
+    nextSpotId: nextSpot.id,
+    nextSpotName: nextSpot.name,
+    taskType: 'visit',
+    taskIndex: completedTargets.length,
+    totalTasks: targetSpots.length,
+    rewardHint: isLast && reward ? reward.unlockText : undefined,
+    estimatedDuration: 5,
+  }
 }

@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { SPOTS, getAllSpots, getCrowdLevel } from '../data/spots'
-import { getCompletedSpots, getCurrentTarget, setCurrentTarget } from '../utils/storage'
+import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag } from '../utils/storage'
 import { getRemainingSpots, getRecommendedSpot, getRandomUnexploredSpot } from '../utils/route-planner'
 
 const CARD_ART: Record<
@@ -14,7 +14,7 @@ const CARD_ART: Record<
     stamp: string
     stampSub: string
     accent: string
-    background: string
+    backgrounds: Record<string, string>
   }
 > = {
   'spot-clock': {
@@ -25,7 +25,14 @@ const CARD_ART: Record<
     stamp: '时',
     stampSub: '钟表',
     accent: '#8C5A20',
-    background: '/assets/explore/history/clock.svg',
+    backgrounds: {
+      '历史': '/assets/explore/history/history-card.png',
+      '建筑': '/assets/explore/architecture/clock.png',
+      '人物': '/assets/explore/people/clock.png',
+      '亲子': '/assets/explore/kids/clock.png',
+      '悬疑': '/assets/explore/suspense/clock.png',
+      '工艺': '/assets/explore/technique/clock.png',
+    },
   },
   'spot-treasure': {
     eyebrow: '金瓯永固 · 田黄三连章',
@@ -35,7 +42,14 @@ const CARD_ART: Record<
     stamp: '宝',
     stampSub: '珍藏',
     accent: '#9F6D16',
-    background: '/assets/explore/history/treasure.svg',
+    backgrounds: {
+      '历史': '/assets/explore/history/history-card.png',
+      '建筑': '/assets/explore/architecture/treasure.png',
+      '人物': '/assets/explore/people/treasure.png',
+      '亲子': '/assets/explore/kids/treasure.png',
+      '悬疑': '/assets/explore/suspense/treasure.png',
+      '工艺': '/assets/explore/technique/treasure.png',
+    },
   },
   'spot-ceramic': {
     eyebrow: '八千年窑火 · 青花粉彩',
@@ -45,7 +59,14 @@ const CARD_ART: Record<
     stamp: '瓷',
     stampSub: '窑火',
     accent: '#476F72',
-    background: '/assets/explore/history/ceramic.svg',
+    backgrounds: {
+      '历史': '/assets/explore/history/history-card.png',
+      '建筑': '/assets/explore/architecture/ceramic.png',
+      '人物': '/assets/explore/people/ceramic.png',
+      '亲子': '/assets/explore/kids/ceramic.png',
+      '悬疑': '/assets/explore/suspense/ceramic.png',
+      '工艺': '/assets/explore/technique/ceramic.png',
+    },
   },
   'spot-yanxi': {
     eyebrow: '灵沼轩 · 水晶宫遗梦',
@@ -55,7 +76,14 @@ const CARD_ART: Record<
     stamp: '沼',
     stampSub: '延禧',
     accent: '#54677D',
-    background: '/assets/explore/history/yanxi.svg',
+    backgrounds: {
+      '历史': '/assets/explore/history/history-card.png',
+      '建筑': '/assets/explore/architecture/yanxi.png',
+      '人物': '/assets/explore/people/yanxi.png',
+      '亲子': '/assets/explore/kids/yanxi.png',
+      '悬疑': '/assets/explore/suspense/yanxi.png',
+      '工艺': '/assets/explore/technique/yanxi.png',
+    },
   },
   'spot-shoukang': {
     eyebrow: '崇庆皇太后 · 颐养之所',
@@ -65,7 +93,14 @@ const CARD_ART: Record<
     stamp: '寿',
     stampSub: '颐养',
     accent: '#934C36',
-    background: '/assets/explore/history/shoukang.svg',
+    backgrounds: {
+      '历史': '/assets/explore/history/history-card.png',
+      '建筑': '/assets/explore/architecture/shoukang.png',
+      '人物': '/assets/explore/people/shoukang.png',
+      '亲子': '/assets/explore/kids/shoukang.png',
+      '悬疑': '/assets/explore/suspense/shoukang.png',
+      '工艺': '/assets/explore/technique/shoukang.png',
+    },
   },
   'spot-cining': {
     eyebrow: '太后正宫 · 雕塑馆',
@@ -75,7 +110,14 @@ const CARD_ART: Record<
     stamp: '宁',
     stampSub: '慈宁',
     accent: '#66714B',
-    background: '/assets/explore/history/cining.svg',
+    backgrounds: {
+      '历史': '/assets/explore/history/history-card.png',
+      '建筑': '/assets/explore/architecture/cining.png',
+      '人物': '/assets/explore/people/cining.png',
+      '亲子': '/assets/explore/kids/cining.png',
+      '悬疑': '/assets/explore/suspense/cining.png',
+      '工艺': '/assets/explore/technique/cining.png',
+    },
   },
 }
 
@@ -84,6 +126,7 @@ export default function Explore() {
   const [entered, setEntered] = useState(false)
   const [spots] = useState(getAllSpots())
   const [currentTarget, setCurrentTargetState] = useState(getCurrentTarget())
+  const interestTag = getInterestTag()
 
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 50)
@@ -144,7 +187,7 @@ export default function Explore() {
         )}
 
         {/* Spot cards */}
-        <div className="space-y-3 mb-6">
+        <div className="space-y-4 mb-6 animate-stagger">
           {spots.map((spot) => {
             const status = getStatus(spot.id)
             const crowd = getCrowdLevel(spot.id)
@@ -156,86 +199,111 @@ export default function Explore() {
                 key={spot.id}
                 onClick={() => isClickable && handleSelectSpot(spot.id)}
                 disabled={!isClickable}
-                className={`group relative w-full overflow-hidden rounded-lg border p-0 text-left transition-all duration-200 ${
+                className={`group relative w-full overflow-hidden rounded-xl text-left transition-all duration-300 ${
                   status === 'completed'
-                    ? 'border-scroll-line/50 opacity-75'
+                    ? 'opacity-75 grayscale-[0.2] cursor-default'
                     : status === 'active'
-                      ? 'border-cinnabar/50 shadow-[0_8px_24px_rgba(163,38,38,0.10)]'
-                      : 'border-[#b9954d]/55 hover:-translate-y-0.5 hover:shadow-[0_10px_24px_rgba(43,41,38,0.08)]'
+                      ? 'ring-2 ring-cinnabar/40 shadow-lg'
+                      : 'shadow-md hover:shadow-xl hover:-translate-y-0.5'
                 }`}
+                style={{ aspectRatio: '16 / 9' }}
               >
-                <div
-                  className={`relative min-h-[176px] bg-[#f4ead8] ${
-                    status === 'completed' ? 'grayscale-[0.25]' : ''
-                  }`}
-                >
+                {/* Base paper texture */}
+                <div className="absolute inset-0 bg-[#f5f0e6]" />
+
+                {/* Background painting — scaled to crop white border */}
+                <div className="absolute inset-0 overflow-hidden">
                   <img
-                    src={art.background}
+                    src={art.backgrounds[interestTag] || art.backgrounds['历史']}
                     alt=""
-                    className="pointer-events-none absolute inset-0 h-full w-full object-fill"
+                    className="h-full w-full object-cover object-right"
+                    style={{ transform: 'scale(1.06)', opacity: status === 'completed' ? 0.5 : 0.9 }}
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(244,234,216,0)_0%,rgba(244,234,216,0)_18%,rgba(255,249,235,0.82)_22%,rgba(255,249,235,0.84)_62%,rgba(255,249,235,0)_78%)]" />
+                </div>
 
-                  <div className="relative min-h-[176px] px-4 py-4 pl-[78px] pr-[82px]">
-                    <div className="min-w-0 pt-1">
-                      <div className="mb-2 flex min-h-[18px] items-center gap-2">
-                        <span className="truncate text-[10px] font-medium tracking-[0.12em] text-[#835f28]">
-                          {art.eyebrow}
-                        </span>
-                        {status === 'active' && (
-                          <span className="shrink-0 rounded-full bg-cinnabar/10 px-2 py-0.5 text-[10px] font-medium text-cinnabar">
-                            探索中
-                          </span>
-                        )}
-                      </div>
+                {/* Content mask: left area for text, fades to reveal palace */}
+                <div className="absolute inset-y-0 left-0 w-[64%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6]/95 to-transparent" />
 
-                      <h3 className={`font-display text-[21px] leading-[1.18] tracking-[0.03em] ${status === 'completed' ? 'text-ink-faint' : 'text-ink'}`}>
-                        {spot.name}
-                      </h3>
+                {/* Left vertical bookmark */}
+                <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center writing-vertical shadow-sm">
+                  <span className="font-display text-[13px] tracking-[0.25em] text-[#f4ead8]">
+                    {art.stampSub}
+                  </span>
+                </div>
 
-                      <p className={`mt-2 text-[13px] leading-[1.55] ${status === 'completed' ? 'text-ink-faint/70' : 'text-ink-dim'}`}>
-                        {art.secret}
+                {/* Main text content */}
+                <div className="absolute inset-y-0 left-[16%] right-[22%] flex flex-col justify-center py-3">
+                  <div>
+                    <div className="mb-1 flex items-center gap-2">
+                      <p className="text-[10px] font-medium tracking-[0.12em]" style={{ color: art.accent }}>
+                        {art.eyebrow}
                       </p>
-
-                      <div className="mt-3 border-t border-[#b89a61]/30 pt-2">
-                        <p className="text-[10px] tracking-[0.12em] text-[#7d735f]">
-                          {art.archivalNote}
-                        </p>
-                      </div>
-
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span
-                          className="rounded-full border bg-[#fff8e8]/60 px-2 py-0.5 text-[10px] font-medium"
-                          style={{ borderColor: `${art.accent}44`, color: art.accent }}
-                        >
-                          {art.detail}
+                      {status === 'active' && (
+                        <span className="shrink-0 rounded-full bg-cinnabar/90 px-2 py-0.5 text-[9px] font-medium text-white">
+                          探索中
                         </span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[#fff8e8]/60 px-2 py-0.5 text-[10px] text-ink-faint">
-                          <span className={`h-1.5 w-1.5 rounded-full ${
-                            crowd === 'smooth' ? 'bg-emerald-500' : crowd === 'moderate' ? 'bg-amber-500' : 'bg-cinnabar'
-                          }`} />
-                          {crowd === 'smooth' ? '人流平稳' : crowd === 'moderate' ? '人流中等' : '较拥挤'}
+                      )}
+                      {status === 'completed' && (
+                        <span className="shrink-0 rounded-full bg-cinnabar/70 px-2 py-0.5 text-[9px] font-medium text-white">
+                          已盖章
                         </span>
-                      </div>
+                      )}
                     </div>
 
-                    <div
-                      className={`absolute bottom-4 right-4 flex h-[58px] w-[58px] rotate-[-10deg] flex-col items-center justify-center rounded-full border-2 bg-[#f8edd6]/70 ${
-                        status === 'completed' ? 'border-cinnabar/70 text-cinnabar' : 'border-current'
-                      }`}
-                      style={{ color: status === 'completed' ? undefined : art.accent }}
+                    <h3
+                      className="font-display text-[18px] leading-tight tracking-[0.02em]"
+                      style={{ color: status === 'completed' ? '#8a7a6a' : '#2b1f12' }}
                     >
-                      <span className="absolute inset-1 rounded-full border border-current opacity-45" />
-                      <span className="font-display text-[21px] leading-none">{status === 'completed' ? '勘' : art.stamp}</span>
-                      <span className="mt-0.5 text-[8px] font-medium tracking-[0.14em]">{status === 'completed' ? '已勘' : art.stampSub}</span>
-                    </div>
+                      {spot.name}
+                    </h3>
 
-                    {status === 'completed' && (
-                      <span className="absolute right-5 top-5 rounded-full bg-cinnabar/10 px-2 py-0.5 text-[10px] font-medium text-cinnabar">
-                        已盖章
-                      </span>
-                    )}
+                    <p
+                      className="mt-1.5 text-[12px] leading-[1.55]"
+                      style={{ color: status === 'completed' ? '#9a8a7a' : '#5c4a3a' }}
+                    >
+                      {art.secret}
+                    </p>
                   </div>
+
+                  <div className="mt-2.5">
+                    <p className="text-[9px] tracking-[0.1em]" style={{ color: '#a08a6a' }}>
+                      {art.archivalNote}
+                    </p>
+
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className="rounded-full border bg-[#fff8e8]/70 px-2 py-0.5 text-[9px] font-medium backdrop-blur-sm"
+                        style={{ borderColor: `${art.accent}44`, color: art.accent }}
+                      >
+                        {art.detail}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-full bg-[#fff8e8]/70 px-2 py-0.5 text-[9px] text-[#8a7a6a] backdrop-blur-sm">
+                        <span
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            crowd === 'smooth' ? 'bg-emerald-500' : crowd === 'moderate' ? 'bg-amber-500' : 'bg-cinnabar'
+                          }`}
+                        />
+                        {crowd === 'smooth' ? '人流平稳' : crowd === 'moderate' ? '人流中等' : '较拥挤'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Seal stamp — bottom right */}
+                <div
+                  className="absolute right-[8%] bottom-[9%] h-[23%] aspect-square flex flex-col items-center justify-center rounded-full border-2"
+                  style={{
+                    borderColor: status === 'completed' ? 'rgba(163,38,38,0.45)' : '#A32626',
+                    color: status === 'completed' ? 'rgba(163,38,38,0.65)' : '#A32626',
+                  }}
+                >
+                  <span className="absolute inset-1 rounded-full border border-current opacity-40" />
+                  <span className="font-display text-[16px] leading-none">
+                    {status === 'completed' ? '勘' : art.stamp}
+                  </span>
+                  <span className="mt-0.5 text-[7px] font-medium tracking-[0.14em]">
+                    {status === 'completed' ? '已勘' : art.stampSub}
+                  </span>
                 </div>
               </button>
             )

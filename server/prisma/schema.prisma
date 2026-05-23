@@ -21,32 +21,59 @@ model Campaign {
 }
 
 model Spot {
-  id          String   @id @default(cuid())
-  campaignId  String   @map("campaign_id")
-  campaign    Campaign @relation(fields: [campaignId], references: [id])
-  name        String
-  description String?
-  type        String   // 'hot', 'cold', 'merchant', 'entrance'
-  status      String   @default("normal") // normal, crowded, paused, targeted
-  sortOrder   Int      @default(0) @map("sort_order")
-  qrPayload   String?  @map("qr_payload")
-  checkIns    CheckIn[]
-  templates   NarrativeTemplate[]
+  id            String            @id @default(cuid())
+  campaignId    String            @map("campaign_id")
+  campaign      Campaign          @relation(fields: [campaignId], references: [id])
+  name          String
+  description   String?
+  type          String            // 'hot', 'cold', 'merchant', 'entrance'
+  status        String            @default("normal") // normal, crowded, paused, targeted
+  sortOrder     Int              @default(0) @map("sort_order")
+  qrPayload     String?          @map("qr_payload")
+  checkIns      CheckIn[]
+  templates     NarrativeTemplate[]
+  facts         SpotFact[]
+  fromConnections SpotConnection[] @relation("fromConnections")
+  toConnections   SpotConnection[] @relation("toConnections")
 
   @@map("spots")
 }
 
 model NarrativeTemplate {
-  id          String @id @default(cuid())
-  spotId      String @map("spot_id")
-  spot        Spot   @relation(fields: [spotId], references: [id])
-  interestTag String @map("interest_tag")
-  title       String
-  baseContent String @map("base_content") @db.Text
-  flavorText  String? @map("flavor_text") @db.Text
+  id            String   @id @default(cuid())
+  spotId        String   @map("spot_id")
+  spot          Spot     @relation(fields: [spotId], references: [id])
+  interestTag   String   @map("interest_tag")
+  title         String
+  baseContent   String   @map("base_content") @db.Text
+  flavorText    String?  @map("flavor_text") @db.Text
+  hookQuestions String[] @map("hook_questions")
 
   @@unique([spotId, interestTag])
   @@map("narrative_templates")
+}
+
+model SpotFact {
+  id       String @id @default(cuid())
+  spotId   String @map("spot_id")
+  spot     Spot   @relation(fields: [spotId], references: [id])
+  factType String @map("fact_type")
+  content  String @db.Text
+  weight   Int    @default(1)
+
+  @@map("spot_facts")
+}
+
+model SpotConnection {
+  id         String  @id @default(cuid())
+  fromSpotId String  @map("from_spot_id")
+  fromSpot   Spot    @relation("fromConnections", fields: [fromSpotId], references: [id])
+  toSpotId   String  @map("to_spot_id")
+  toSpot     Spot    @relation("toConnections", fields: [toSpotId], references: [id])
+  hookFact   String  @map("hook_fact") @db.Text
+  payoffText String  @map("payoff_text") @db.Text
+
+  @@map("spot_connections")
 }
 
 model VisitorSession {

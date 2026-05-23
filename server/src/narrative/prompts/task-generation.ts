@@ -1,50 +1,126 @@
-interface PromptContext {
-  title: string
-  baseContent: string
-  flavorText: string
-  spotName: string
-  spotStatus: string
-  interestTags: string[]
-  completedSpotIds: string[]
-  totalSpots: number
+interface ThreeStepContext {
+  currentSpotName: string
+  currentSpotFacts: string[]
+  targetSpotName: string
+  targetSpotTeaser: string
+  connectionHookFact: string
+  connectionPayoffText: string
+  interestTag: string
+  completedCount: number
+  totalCount: number
+  crowdStatus?: 'smooth' | 'moderate' | 'crowded'
+  targetStatus?: string
+  rewardHint?: string
 }
 
-export function buildPrompt(ctx: PromptContext): string {
-  const { title, baseContent, flavorText, spotName, spotStatus, interestTags, completedSpotIds, totalSpots } = ctx
+function getToneInstruction(interestTag: string): string {
+  const tones: Record<string, string> = {
+    '历史': '语气庄重沉稳，以史实为骨，带时间纵深感',
+    '建筑': '语气精确克制，善用空间比喻与尺度描述',
+    '人物': '语气有温度，关注个体命运与情感细节',
+    '亲子': '语气活泼亲切，多用设问和想象邀请',
+    '悬疑': '语气神秘克制，善用反问和留白',
+    '工艺': '语气专业精准，突出技术细节与匠人精神',
+  }
+  return tones[interestTag] || '语气自然流畅，有叙事张力'
+}
 
-  const progress = `当前进度：${completedSpotIds.length + 1}/${totalSpots}。`
-  const interest = `游客兴趣标签：${interestTags.join('、')}。`
-  const statusNote = spotStatus === 'crowded'
-    ? `注意：${spotName}目前人流较多，请在叙述中委婉提示游客此处值得一看但可能需要耐心。`
-    : ''
-  const statusNote2 = spotStatus === 'targeted'
-    ? `提示：${spotName}是运营方希望引导游客前往的点位，请在叙述中自然推荐此处的独特之处。`
-    : ''
+export function buildThreeStepPrompt(ctx: ThreeStepContext): string {
+  const {
+    currentSpotName,
+    currentSpotFacts,
+    targetSpotName,
+    targetSpotTeaser,
+    connectionHookFact,
+    connectionPayoffText,
+    interestTag,
+    completedCount,
+    totalCount,
+    crowdStatus,
+    targetStatus,
+    rewardHint,
+  } = ctx
+
+  const progress = `当前进度：${completedCount + 1}/${totalCount}`
+  const tone = getToneInstruction(interestTag)
+
+  let statusNotes = ''
+  if (crowdStatus === 'crowded') {
+    statusNotes += `\n【实时状态】${currentSpotName}目前人流较多，请在叙述中委婉暗示此处拥挤，为分流做铺垫。`
+  }
+  if (targetStatus === 'targeted' || targetStatus === 'normal') {
+    statusNotes += `\n【导流提示】${targetSpotName}是推荐点位，目前相对安静，请在叙述中自然突出其独特体验。`
+  }
 
   return `
-你是一位博物馆叙事导览员。请根据以下资料为游客生成一段个性化的剧情引导。
+你是故宫数字导览员"叙境"。请严格基于以下事实资料，用【${interestTag}】视角，为游客生成一段"软导流"叙事。
 
-## 资料（严禁编造资料之外的内容）
-- 标题：${title}
-- 核心内容：${baseContent}
-- 氛围描述：${flavorText}
+## 必须遵守的三步法结构
+1. 【认知重构】基于当前馆事实，制造悬念或打破固有认知（30%）
+2. 【疑点植入】用关联线索，自然指向目标馆（40%）
+3. 【利益驱动】给出前往理由（人流/奖励/独家体验）（30%）
+
+## 事实资料（严禁编造之外内容）
+【当前馆：${currentSpotName}】
+${currentSpotFacts.map(f => `- ${f}`).join('\n')}
+
+【目标馆：${targetSpotName}】
+- 简介：${targetSpotTeaser}
+
+【两馆关联线索】
+${connectionHookFact}
+
+【利益点】
+${connectionPayoffText}
+${rewardHint ? `\n【奖励】${rewardHint}` : ''}
+${statusNotes}
 
 ## 游客信息
-- ${interest}
+- 兴趣标签：${interestTag}
 - ${progress}
-- 下一点位：${spotName}
-
-## 特殊要求
-${statusNote}
-${statusNote2}
 
 ## 输出要求
-1. 用第二人称"你"与游客对话。
-2. 语气要符合兴趣标签（悬疑要神秘，亲子要活泼，历史要庄重）。
-3. 将"前往${spotName}"的引导自然融入剧情，不要生硬地说"请去下一个点位"。
-4. 只使用提供的资料，不要编造历史事实。
-5. 控制在150字以内。
+- 总字数 180-220 字
+- 第二人称"你"
+- ${tone}
+- 导流必须自然，禁止出现"请前往""下一个景点是""建议你马上去"等生硬表达
+- 结尾句必须是行动暗示，但不能是祈使句
+- 只输出叙事正文，不要标题和解释
+`.trim()
+}
 
-请直接输出叙述文本，不要加任何前缀或解释。
+export function buildVoicePrompt(ctx: {
+  spotName: string
+  facts: string[]
+  history: Array<{ role: 'user' | 'assistant'; content: string }>
+  question: string
+  interestTag: string
+}): string {
+  const { spotName, facts, history, question, interestTag } = ctx
+
+  const historyText = history
+    .slice(-6)
+    .map(h => `${h.role === 'user' ? '游客' : '导览员'}：${h.content}`)
+    .join('\n')
+
+  return `
+你是故宫数字导览员"叙叙"。你现在正在${spotName}为一位对"${interestTag}"感兴趣的游客讲解。
+
+## 知识库（回答必须基于以下事实，严禁编造）
+${facts.map(f => `- ${f}`).join('\n')}
+
+## 对话历史
+${historyText || '（暂无）'}
+
+## 游客提问
+${question}
+
+## 回答要求
+- 用第二人称"你"对话
+- 语气亲切自然，像一位博学的老朋友
+- 只使用知识库中的事实，不确定的内容直接说"史料未载"
+- 如果游客的问题与当前点位无关，礼貌地引导回主题
+- 控制在 80-120 字
+- 不要加前缀或解释
 `.trim()
 }

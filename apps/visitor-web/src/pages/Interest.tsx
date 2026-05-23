@@ -29,28 +29,28 @@ const STYLE_CARDS: StyleCard[] = [
     id: 'figure',
     label: '人物',
     subtitle: 'Figures',
-    icon: 'crown',
+    icon: 'figure',
     description: '帝王将相的恩怨情仇',
   },
   {
     id: 'family',
     label: '亲子',
     subtitle: 'Family',
-    icon: 'lantern',
+    icon: 'balloon',
     description: '寓教于乐的宫廷探秘',
   },
   {
     id: 'mystery',
     label: '悬疑',
     subtitle: 'Mystery',
-    icon: 'seal',
+    icon: 'search',
     description: '未解之谜与隐秘档案',
   },
   {
     id: 'craft',
     label: '工艺',
     subtitle: 'Craft',
-    icon: 'brush',
+    icon: 'fan',
     description: '巧夺天工的皇家技艺',
   },
 ]
@@ -58,46 +58,48 @@ const STYLE_CARDS: StyleCard[] = [
 const ICONS: Record<string, JSX.Element> = {
   scroll: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 3h12v18a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V3z" />
-      <path d="M6 8h12" />
-      <path d="M6 5h12" />
+      <path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z" />
+      <path d="M7 2v20" />
+      <path d="M17 2v20" />
+      <path d="M7 7h10" />
+      <path d="M7 11h10" />
+      <path d="M7 15h6" />
     </svg>
   ),
   temple: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 21h18" />
-      <path d="M5 21V7l7-4 7 4v14" />
-      <path d="M9 21v-6h6v6" />
-      <path d="M10 9h4" />
-      <path d="M10 12h4" />
+      <path d="M2 10l10-7 10 7" />
+      <path d="M4 10v11" />
+      <path d="M20 10v11" />
+      <path d="M2 21h20" />
+      <path d="M8 21v-5h8v5" />
+      <path d="M8 16h8" />
     </svg>
   ),
-  crown: (
+  figure: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 18h20" />
-      <path d="M4 18V9l4 3 4-6 4 6 4-3v9" />
+      <circle cx="12" cy="8" r="3.5" />
+      <path d="M6 21c0-4 3-6.5 6-6.5s6 2.5 6 6.5" />
     </svg>
   ),
-  lantern: (
+  balloon: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M8 21h8" />
-      <path d="M12 21V11" />
-      <path d="M8 11h8v7a2 2 0 0 1-2 2h-4a2 2 0 0 1-2-2v-7z" />
-      <path d="M9 11V7a3 3 0 0 1 6 0v4" />
+      <path d="M12 2a5.5 5.5 0 0 1 5.5 5.5c0 2.8-2.2 5.5-5.5 7-3.3-1.5-5.5-4.2-5.5-7A5.5 5.5 0 0 1 12 2z" />
+      <path d="M12 14.5v7" />
+      <path d="M10 21.5h4" />
     </svg>
   ),
-  seal: (
+  search: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="3" width="12" height="14" rx="1" />
-      <path d="M12 17v4" />
-      <path d="M8 21h8" />
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
     </svg>
   ),
-  brush: (
+  fan: (
     <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M18 3a3 3 0 0 0-3 3c0 1.5.5 2 2 4s3 3 3 3a3 3 0 0 0 0-6" />
-      <path d="M6 21l6-6" />
-      <path d="M3 21h6" />
+      <path d="M12 2c6 6 8.5 11 8.5 15h-17C3.5 13 6 8 12 2z" />
+      <path d="M12 2v15" />
+      <path d="M6.5 17 12 6l5.5 11" />
     </svg>
   ),
 }

@@ -1,10 +1,9 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TopNav from '../components/TopNav'
 import { getVisitorId, getInterestTag, isNarrativeUnlocked } from '../utils/storage'
 import { SPOTS, getAllSpots } from '../data/spots'
-import { getTemplate, getTemplatesBySpot, NARRATIVE_TEMPLATES } from '../data/narratives'
-import { getNextRecommendedSpot } from '../utils/route-planner'
+import { getTemplatesBySpot, NARRATIVE_TEMPLATES } from '../data/narratives'
 
 const DEFAULT_HINTS = [
   '问我关于这里的秘辛...',
@@ -12,6 +11,19 @@ const DEFAULT_HINTS = [
   '问我有关历史的趣闻...',
   '试着问我：这扇窗为何半掩？',
 ]
+
+interface NarrativeData {
+  narrativeTitle: string
+  narrativeText: string
+  destinationHint: string
+  nextSpotId: string
+  nextSpotName: string
+}
+
+interface VoiceChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
 
 export default function Narrative() {
   const navigate = useNavigate()
@@ -26,22 +38,57 @@ export default function Narrative() {
   const [aiReply, setAiReply] = useState('')
   const [showReply, setShowReply] = useState(false)
   const [typedText, setTypedText] = useState('')
-  const interestTag = getInterestTag()
+  const [narrativeData, setNarrativeData] = useState<NarrativeData | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [voiceHistory, setVoiceHistory] = useState<VoiceChatMessage[]>([])
 
+  const interestTag = getInterestTag()
   const hintTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  // Pre-compute spot data before hooks that depend on them
+  // Pre-compute spot data
   const spot = spotId ? SPOTS[spotId] : undefined
   const allTemplates = spotId ? getTemplatesBySpot(spotId) : []
   const availableTags = allTemplates.map((t) => t.interestTag)
 
-  // Default to interestTag if available, otherwise first available tag
   const [activeTag, setActiveTag] = useState(() => {
     if (interestTag && availableTags.includes(interestTag)) return interestTag
     return availableTags[0] || ''
   })
 
-  const template = spotId ? getTemplate(spotId, activeTag) : undefined
+  const template = spotId ? allTemplates.find((t) => t.interestTag === activeTag) : undefined
+
+  // Fetch AI-generated narrative from backend
+  const fetchNarrative = useCallback(async () => {
+    if (!spotId) return
+    const visitorId = getVisitorId()
+    if (!visitorId) return
+
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/narrative/task', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ visitorId, spotId, interestTag: activeTag }),
+      })
+      if (!res.ok) throw new Error('Failed to fetch narrative')
+      const data = await res.json()
+      setNarrativeData(data)
+    } catch (e) {
+      console.error(e)
+      // Fallback to static template
+      if (template) {
+        setNarrativeData({
+          narrativeTitle: template.title,
+          narrativeText: template.baseContent,
+          destinationHint: '',
+          nextSpotId: '',
+          nextSpotName: '',
+        })
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }, [spotId, activeTag, template])
 
   useEffect(() => {
     const visitorId = getVisitorId()
@@ -52,6 +99,10 @@ export default function Narrative() {
     const t = setTimeout(() => setEntered(true), 50)
     return () => clearTimeout(t)
   }, [navigate])
+
+  useEffect(() => {
+    fetchNarrative()
+  }, [fetchNarrative])
 
   // Reset hint index when spot changes
   useEffect(() => {
@@ -71,17 +122,17 @@ export default function Narrative() {
 
   // Typewriter effect for narrative
   useEffect(() => {
-    if (!template) return
+    const text = narrativeData?.narrativeText || template?.baseContent || ''
+    if (!text) return
     setTypedText('')
     let i = 0
-    const text = template.baseContent
     const interval = setInterval(() => {
       i++
       setTypedText(text.slice(0, i))
       if (i >= text.length) clearInterval(interval)
     }, 20)
     return () => clearInterval(interval)
-  }, [spotId, activeTag, template])
+  }, [narrativeData, template])
 
   if (!spot) {
     return (
@@ -99,9 +150,8 @@ export default function Narrative() {
 
   const handleNextSpot = () => {
     if (!spotId) return
-    const nextSpotId = getNextRecommendedSpot(spotId)
-    if (nextSpotId) {
-      navigate(`/navigate?spotId=${nextSpotId}`)
+    if (narrativeData?.nextSpotId) {
+      navigate(`/navigate?spotId=${narrativeData.nextSpotId}`)
     } else {
       navigate('/complete')
     }
@@ -114,15 +164,58 @@ export default function Narrative() {
     setUserQuestion('')
   }
 
-  const handleMicEnd = () => {
+  const handleMicEnd = async () => {
     setIsListening(false)
-    // Simulate voice interaction
-    setUserQuestion('这扇窗为何半掩？')
-    setTimeout(() => {
-      setAiReply('这半掩的窗，是清代宫廷的礼制——"望窗而知尊卑"。内廷窗扇多半开，以示主人居内而不拒客，亦是宫女太监窥视通报之便。')
+
+    // For MVP: simulate a question if not using real ASR yet
+    // TODO: integrate with teammate's ASR module
+    const simulatedQuestion = hints[hintIndex] || '这扇窗为何半掩？'
+    setUserQuestion(simulatedQuestion)
+
+    const visitorId = getVisitorId()
+    if (!visitorId || !spotId) {
+      setAiReply('请先登录后再提问。')
       setShowReply(true)
-    }, 800)
+      return
+    }
+
+    try {
+      const newHistory: VoiceChatMessage[] = [
+        ...voiceHistory,
+        { role: 'user', content: simulatedQuestion },
+      ]
+
+      const res = await fetch('/api/narrative/voice-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visitorId,
+          spotId,
+          transcript: simulatedQuestion,
+          conversationHistory: newHistory.slice(-10),
+          interestTag: activeTag,
+        }),
+      })
+
+      if (!res.ok) throw new Error('Voice chat failed')
+      const data = await res.json()
+
+      setAiReply(data.replyText)
+      setVoiceHistory([...newHistory, { role: 'assistant', content: data.replyText }])
+
+      if (data.divertHint) {
+        // Optional: show soft diversion toast
+        console.log('Divert hint:', data.divertHint)
+      }
+    } catch (e) {
+      console.error(e)
+      setAiReply('叙叙刚才走神了……你能再问一遍吗？')
+    }
+
+    setShowReply(true)
   }
+
+  const displayTitle = narrativeData?.narrativeTitle || template?.title || spot.name
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
@@ -158,7 +251,7 @@ export default function Narrative() {
 
               <div className="px-5 pt-5 pb-6">
                 {/* Spot name */}
-                <h2 className="font-display text-[22px] text-ink">{spot.name}</h2>
+                <h2 className="font-display text-[22px] text-ink">{displayTitle}</h2>
 
                 {/* Artifact anchor */}
                 {template && (
@@ -173,17 +266,17 @@ export default function Narrative() {
                     <span className="w-0.5 h-2.5 bg-cinnabar/60 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
                     <span className="w-0.5 h-3.5 bg-cinnabar/60 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
                   </div>
-                  <span className="text-[12px] text-ink-faint">AI 语音讲解中...</span>
+                  <span className="text-[12px] text-ink-faint">{isLoading ? 'AI 正在构思叙事…' : 'AI 语音讲解中...'}</span>
                 </div>
 
                 {/* Narrative body with typewriter */}
-                {template ? (
+                {isLoading ? (
+                  <p className="text-[14px] text-ink-dim mt-4">正在生成专属叙事…</p>
+                ) : (
                   <div className="text-[16px] leading-[1.85] text-ink mt-4 min-h-[80px]">
                     {typedText}
                     <span className="inline-block w-0.5 h-4 bg-cinnabar/60 ml-0.5 animate-pulse align-middle" />
                   </div>
-                ) : (
-                  <p className="text-[14px] text-ink-dim mt-4">暂无该视角的叙事内容</p>
                 )}
 
                 {/* Flavor text */}
@@ -193,10 +286,18 @@ export default function Narrative() {
                   </p>
                 )}
 
-                {/* Next spot hook — narrative continuation */}
-                {template?.nextHook && (
+                {/* Next spot hook — from AI narrative data */}
+                {narrativeData?.nextSpotName ? (
                   <div className="mt-5 pl-3 border-l-2 border-gold/30">
-                    <p className="text-[14px] leading-[1.7] text-ink-dim">{template.nextHook}</p>
+                    <p className="text-[14px] leading-[1.7] text-ink-dim">
+                      下一处秘辛在{narrativeData.nextSpotName}——{narrativeData.destinationHint}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 pl-3 border-l-2 border-gold/30">
+                    <p className="text-[14px] leading-[1.7] text-ink-dim">
+                      六处秘辛皆已勘验完毕，你的紫禁城密档已收录完整。
+                    </p>
                   </div>
                 )}
               </div>
@@ -377,14 +478,24 @@ export default function Narrative() {
                       }
                     }}
                     className={`rounded-xl border p-4 ${
-                      unlocked ? 'bg-paper border-gold/20' : 'bg-paper-deep border-scroll-line/30 opacity-60'
+                      s.id === spotId
+                        ? 'bg-cinnabar-light border-cinnabar shadow-[0_2px_12px_rgba(163,38,38,0.1)]'
+                        : unlocked
+                          ? 'bg-paper border-gold/20'
+                          : 'bg-paper-deep border-scroll-line/30 opacity-60'
                     } ${unlocked && s.id !== spotId ? 'cursor-pointer hover:bg-paper-deep/80 transition-colors' : ''}`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`font-display text-[15px] ${unlocked ? 'text-ink' : 'text-ink-faint'}`}>
+                      <span className={`font-display text-[15px] ${
+                        s.id === spotId ? 'text-cinnabar' : unlocked ? 'text-ink' : 'text-ink-faint'
+                      }`}>
                         {s.name}
                       </span>
-                      {unlocked ? (
+                      {s.id === spotId ? (
+                        <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cinnabar rotate-[-12deg]">
+                          <span className="text-white font-display text-[8px]">勘</span>
+                        </span>
+                      ) : unlocked ? (
                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-cinnabar/50 rotate-[-12deg]">
                           <span className="text-cinnabar font-display text-[8px]">勘</span>
                         </span>
@@ -396,7 +507,9 @@ export default function Narrative() {
                       )}
                     </div>
                     {unlocked && tmpl ? (
-                      <p className="text-[13px] text-ink-dim leading-[1.5] line-clamp-2">{tmpl.baseContent}</p>
+                      <p className={`text-[13px] leading-[1.5] line-clamp-2 ${
+                        s.id === spotId ? 'text-cinnabar/70' : 'text-ink-dim'
+                      }`}>{tmpl.baseContent}</p>
                     ) : (
                       <p className="text-[12px] text-ink-faint">尚未解锁</p>
                     )}

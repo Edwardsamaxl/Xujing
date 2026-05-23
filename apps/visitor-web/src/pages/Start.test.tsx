@@ -5,23 +5,28 @@ import Start from './Start'
 import { renderWithRouter, expectLocation, mockLocalStorage } from '../test/utils'
 
 describe('Start', () => {
-  it('renders entry screen with title and enter button', async () => {
+  it('renders start screen with title, subtitle and enter button', async () => {
     mockLocalStorage(null)
     renderWithRouter(<Start />)
 
-    await waitFor(() => expect(screen.getByText('叙境')).toBeInTheDocument())
-    expect(screen.getByText('故宫密档寻踪')).toBeInTheDocument()
-    expect(screen.getByText('尘光入殿，旧档将启')).toBeInTheDocument()
-    expect(screen.getByLabelText('进入')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('start-title')).toBeInTheDocument(), {
+      timeout: 3000,
+    })
+    expect(screen.getByText('历史的每一块青砖，都在等待精确的解读。')).toBeInTheDocument()
+    expect(screen.getByLabelText('落印，开启勘验')).toBeInTheDocument()
   })
 
   it('navigates to /interest on enter click', async () => {
     mockLocalStorage(null)
     renderWithRouter(<Start />)
 
-    await waitFor(() => expect(screen.getByLabelText('进入')).toBeInTheDocument())
-    await userEvent.click(screen.getByLabelText('进入'))
+    await waitFor(() =>
+      expect(screen.getByTestId('start-screen')).toHaveClass('start-screen--content'),
+      { timeout: 3000 },
+    )
 
-    await waitFor(() => expectLocation('/interest'))
+    await userEvent.click(screen.getByLabelText('落印，开启勘验'))
+
+    await waitFor(() => expectLocation('/interest'), { timeout: 3000 })
   })
 })

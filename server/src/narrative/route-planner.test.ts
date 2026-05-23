@@ -5,8 +5,12 @@ function makeSpot(overrides: Partial<any> = {}) {
   return {
     id: `spot-${overrides.id ?? Math.random().toString(36).slice(2)}`,
     name: 'Spot',
+    campaignId: 'camp-1',
+    description: null,
     type: 'cold',
     status: 'normal',
+    sortOrder: 0,
+    qrPayload: null,
     ...overrides,
   }
 }

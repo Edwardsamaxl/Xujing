@@ -96,6 +96,13 @@ export default function Navigate() {
     return () => clearTimeout(t)
   }, [])
 
+  const handleDismissReward = () => {
+    setRewardFading(true)
+    setTimeout(() => {
+      navigate(`/narrative?spotId=${spotId}`)
+    }, 700)
+  }
+
   if (!spotId || !SPOTS[spotId]) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-6">
@@ -126,12 +133,8 @@ export default function Navigate() {
     unlockNarrative(spotId)
     // 3. 清除当前目标
     setCurrentTarget(null)
-    // 4. 弹出奖励
+    // 4. 弹出奖励（不再自动消失）
     setShowReward(true)
-    setTimeout(() => setRewardFading(true), 2000)
-    setTimeout(() => {
-      navigate(`/narrative?spotId=${spotId}`)
-    }, 2800)
   }
 
   const handleChangeTarget = () => {
@@ -358,16 +361,27 @@ export default function Navigate() {
             rewardFading ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="bg-paper rounded-2xl p-8 max-w-[320px] w-full mx-6 text-center animate-seal-stamp">
-            {/* Medal placeholder */}
-            <div className="w-20 h-20 rounded-full border-2 border-gold/40 flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-paper-deep to-paper">
-              <span className="text-gold font-display text-xl tracking-[0.1em]">{spot.shortName.charAt(0)}</span>
+          <div className="bg-white rounded-2xl p-8 max-w-[320px] w-full mx-6 text-center animate-seal-stamp">
+            {/* Medal image */}
+            <div className="w-52 h-52 mx-auto mb-5">
+              <img
+                src={`/assets/medal/${spot.shortName}.png`}
+                alt={`${spot.shortName}勋章`}
+                className="w-full h-full object-contain"
+              />
             </div>
             <h3 className="font-display text-[20px] text-ink mb-1">{spot.name} 已勘验</h3>
             <p className="text-[13px] text-ink-dim mb-2">秘辛已解锁，收录于密档</p>
-            <div className="mt-4 p-3 rounded-lg bg-gold-dim border border-gold/10">
+            <div className="mt-4 p-3 rounded-lg bg-gold-dim border border-gold/10 mb-5">
               <p className="text-[12px] text-gold/70">{spot.teaser}</p>
             </div>
+            <button
+              onClick={handleDismissReward}
+              disabled={rewardFading}
+              className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] disabled:opacity-50"
+            >
+              收好勋章
+            </button>
           </div>
         </div>
       )}
