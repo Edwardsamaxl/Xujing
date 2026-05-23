@@ -18,7 +18,7 @@ export default function TopNav({ title, showBack, onBack }: TopNavProps) {
           </svg>
         </button>
       )}
-      <span className="text-[15px] font-medium tracking-[0.08em] text-ink uppercase font-display">{title}</span>
+      <span className="text-[16px] font-medium tracking-[0.08em] text-ink uppercase font-display">{title}</span>
     </div>
   )
 }

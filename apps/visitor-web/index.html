@@ -18,6 +18,28 @@
   </head>
   <body>
     <div id="root"></div>
+    <div id="landscape-hint" style="display:none;position:fixed;inset:0;z-index:9999;background:#F7F4ED;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:20px;">
+      <div style="width:48px;height:48px;border:2px solid #D4CFC3;border-radius:12px;margin-bottom:16px;position:relative;">
+        <div style="position:absolute;inset:6px;border:2px solid #A32626;border-radius:8px;transform:rotate(90deg);transition:transform 0.3s;"></div>
+      </div>
+      <p style="font-size:16px;color:#2B2926;font-weight:500;margin-bottom:8px;">请竖屏使用</p>
+      <p style="font-size:12px;color:#6B6860;">将手机旋转至竖屏以获得最佳体验</p>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      (function() {
+        var hint = document.getElementById('landscape-hint');
+        function check() {
+          if (window.innerWidth > window.innerHeight && window.innerWidth < 1024) {
+            hint.style.display = 'flex';
+          } else {
+            hint.style.display = 'none';
+          }
+        }
+        check();
+        window.addEventListener('resize', check);
+        window.addEventListener('orientationchange', check);
+      })();
+    </script>
   </body>
 </html>

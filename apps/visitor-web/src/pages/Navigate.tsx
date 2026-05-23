@@ -118,7 +118,7 @@ export default function Navigate() {
         <p className="text-ink-dim mb-4">未选择目标地点</p>
         <button
           onClick={() => navigate('/explore')}
-          className="h-12 px-8 rounded-full bg-cinnabar text-white text-base font-medium transition-transform active:scale-[0.96]"
+          className="h-12 px-8 rounded-full bg-cinnabar text-paper text-base font-medium transition-transform active:scale-[0.96]"
         >
           返回秘辛地图
         </button>
@@ -150,7 +150,7 @@ export default function Navigate() {
   return (
     <div className="flex min-h-screen flex-col">
       <div
-        className={`flex-1 flex flex-col px-5 pt-8 pb-6 transition-all duration-500 ease-out ${
+        className={`flex-1 flex flex-col px-5 pt-8 pb-6 transition-[opacity,transform] duration-500 ease-out ${
           entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         }`}
       >
@@ -159,10 +159,10 @@ export default function Navigate() {
           <p className="text-[11px] text-gold tracking-[0.1em] font-serif uppercase mb-2">
             Navigate · 路线引导
           </p>
-          <h1 className="font-display text-[26px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
+          <h1 className="font-display text-[28px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
             前往 {spot.shortName}
           </h1>
-          <p className="text-[13px] text-ink-dim leading-[1.6]">{spot.location}</p>
+          <p className="text-[12px] text-ink-dim leading-[1.6]">{spot.location}</p>
         </div>
 
         {/* Forbidden City mini map */}
@@ -283,7 +283,7 @@ export default function Navigate() {
           </svg>
 
           {/* 距离角标 */}
-          <div className="absolute top-3 right-3 bg-cinnabar/90 text-white rounded-full px-3 py-1 shadow-sm">
+          <div className="absolute top-3 right-3 bg-cinnabar/90 text-paper rounded-full px-3 py-1 shadow-sm">
             <p className="text-[12px] font-medium">{route.distance} 米</p>
           </div>
         </div>
@@ -312,11 +312,11 @@ export default function Navigate() {
           <div className="rounded-lg bg-paper-deep border border-scroll-line p-4 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-ink-dim">步行距离</span>
-              <span className="text-[15px] text-ink font-medium">{route.distance} 米</span>
+              <span className="text-[16px] text-ink font-medium">{route.distance} 米</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[12px] text-ink-dim">预计时间</span>
-              <span className="text-[15px] text-ink font-medium">约 {route.walkTime} 分钟</span>
+              <span className="text-[16px] text-ink font-medium">约 {route.walkTime} 分钟</span>
             </div>
             <div className="w-full h-px bg-scroll-line/30" />
             <div className="flex items-center gap-2">
@@ -368,7 +368,7 @@ export default function Navigate() {
               />
             </div>
             <h3 className="font-display text-[20px] text-ink mb-1">{spot.name} 已勘验</h3>
-            <p className="text-[13px] text-ink-dim mb-2">秘辛已解锁，收录于密档</p>
+            <p className="text-[12px] text-ink-dim mb-2">秘辛已解锁，收录于密档</p>
             <div className="mt-4 p-3 rounded-lg bg-gold-dim border border-gold/10 mb-5">
               <p className="text-[12px] text-gold/70">{spot.teaser}</p>
             </div>

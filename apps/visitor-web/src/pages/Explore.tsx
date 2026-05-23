@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import { SPOTS, getAllSpots, getCrowdLevel } from '../data/spots'
-import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag } from '../utils/storage'
-import { getRemainingSpots, getRecommendedSpot, getRandomUnexploredSpot } from '../utils/route-planner'
+import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag, getVisitorId } from '../utils/storage'
+import { getRemainingSpots, getRandomUnexploredSpot } from '../utils/route-planner'
+import { fetchRecommendation, type RecommendResult } from '../api/recommend'
 import { Button } from '../components/Button'
 
 interface CardArt {
@@ -88,6 +89,7 @@ export default function Explore() {
   const [entered, setEntered] = useState(false)
   const [spots] = useState(getAllSpots())
   const [currentTarget, setCurrentTargetState] = useState(getCurrentTarget())
+  const [recommendation, setRecommendation] = useState<RecommendResult | null>(null)
   const interestTag = getInterestTag()
 
   useEffect(() => {
@@ -95,10 +97,17 @@ export default function Explore() {
     return () => clearTimeout(t)
   }, [])
 
+  useEffect(() => {
+    const visitorId = getVisitorId()
+    if (!visitorId) return
+    fetchRecommendation({ visitorId })
+      .then(r => setRecommendation(r))
+      .catch(() => setRecommendation(null))
+  }, [])
+
   const completed = getCompletedSpots()
   const completedSet = new Set(completed)
   const remaining = getRemainingSpots()
-  const recommended = getRecommendedSpot()
 
   const handleSelectSpot = (spotId: string) => {
     if (completedSet.has(spotId)) return
@@ -123,15 +132,15 @@ export default function Explore() {
   }
 
   return (
-    <div className={`flex min-h-screen flex-col px-5 pt-10 pb-8 transition-all duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+    <div className={`flex min-h-screen flex-col px-5 pt-10 pb-8 transition-[opacity,transform] duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
       <div className="mx-auto w-full max-w-[400px]">
         {/* Header */}
         <div className="mb-6">
           <p className="text-[11px] text-gold tracking-[0.1em] font-serif uppercase mb-2">Explore · 秘辛地图</p>
-          <h1 className="font-display text-[26px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
+          <h1 className="font-display text-[28px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
             选关中枢
           </h1>
-          <p className="text-[13px] text-ink-dim leading-[1.6]">
+          <p className="text-[12px] text-ink-dim leading-[1.6]">
             {remaining.length === 0
               ? '全部点位已勘验，可前往结案'
               : `剩余 ${remaining.length} 处未探索 · 点击卡片开始勘验`}
@@ -139,12 +148,22 @@ export default function Explore() {
         </div>
 
         {/* Weak recommendation */}
-        {recommended && remaining.length > 0 && (
-          <div className="mb-4 p-3 rounded-lg bg-paper-deep border border-gold/20 flex items-center gap-3">
-            <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse flex-shrink-0" />
-            <p className="text-[12px] text-ink-dim">
-              轻量提示：<span className="text-ink font-medium">{SPOTS[recommended]?.name}</span> 当前人流较少，可优先前往
-            </p>
+        {recommendation && remaining.length > 0 && (
+          <div className="mb-4 p-3 rounded-lg bg-paper-deep border border-gold/20 flex items-start gap-3">
+            <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse flex-shrink-0 mt-1.5" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[12px] text-ink-dim leading-[1.6]">
+                {recommendation.reason}
+              </p>
+              <div className="mt-2 flex gap-2">
+                <button
+                  onClick={() => handleSelectSpot(recommendation.spotId)}
+                  className="text-[11px] px-2.5 h-10 rounded-full bg-gold/10 text-gold font-medium transition-colors hover:bg-gold/20 flex items-center"
+                >
+                  去看看
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -161,7 +180,7 @@ export default function Explore() {
                 key={spot.id}
                 onClick={() => isClickable && handleSelectSpot(spot.id)}
                 disabled={!isClickable}
-                className={`group relative w-full overflow-hidden rounded-xl text-left transition-all duration-300 ${
+                className={`group relative w-full overflow-hidden rounded-xl text-left transition-[transform,opacity,box-shadow] duration-300 ${
                   status === 'completed'
                     ? 'opacity-75 grayscale-[0.2] cursor-default'
                     : status === 'active'
@@ -186,16 +205,23 @@ export default function Explore() {
                       img.src = FALLBACK_BG
                     }}
                     className="h-full w-full object-cover object-right"
-                    style={{ transform: 'scale(1.06)', opacity: status === 'completed' ? 0.5 : 0.9 }}
+                    style={{
+                      transform: 'scale(1.06)',
+                      opacity: status === 'completed'
+                        ? 0.5
+                        : interestTag === '历史'
+                          ? 0.9
+                          : 0.6,
+                    }}
                   />
                 </div>
 
                 {/* Content mask: left area for text, fades to reveal palace */}
-                <div className="absolute inset-y-0 left-0 w-[64%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6]/95 to-transparent" />
+                <div className="absolute inset-y-0 left-0 w-[80%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6] via-[60%] to-transparent" />
 
                 {/* Left vertical bookmark */}
                 <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center writing-vertical shadow-sm">
-                  <span className="font-display text-[13px] tracking-[0.25em] text-[#f4ead8]">
+                  <span className="font-display text-[12px] tracking-[0.25em] text-[#f4ead8]">
                     {art.stampSub}
                   </span>
                 </div>
@@ -208,34 +234,40 @@ export default function Explore() {
                         {art.eyebrow}
                       </p>
                       {status === 'active' && (
-                        <span className="shrink-0 rounded-full bg-cinnabar/90 px-2 py-0.5 text-[9px] font-medium text-white">
+                        <span className="shrink-0 rounded-full bg-cinnabar/90 px-2 py-0.5 text-[9px] font-medium text-paper">
                           探索中
                         </span>
                       )}
                       {status === 'completed' && (
-                        <span className="shrink-0 rounded-full bg-cinnabar/70 px-2 py-0.5 text-[9px] font-medium text-white">
+                        <span className="shrink-0 rounded-full bg-cinnabar/70 px-2 py-0.5 text-[9px] font-medium text-paper">
                           已盖章
                         </span>
                       )}
                     </div>
 
                     <h3
-                      className="font-display text-[18px] leading-tight tracking-[0.02em]"
-                      style={{ color: status === 'completed' ? '#8a7a6a' : '#2b1f12' }}
+                      className="font-display text-[20px] leading-tight tracking-[0.02em]"
+                      style={{
+                        color: status === 'completed' ? '#8a7a6a' : '#1a0f05',
+                        textShadow: '0 1px 2px rgba(245,240,230,0.9)',
+                      }}
                     >
                       {spot.name}
                     </h3>
 
                     <p
                       className="mt-1.5 text-[12px] leading-[1.55]"
-                      style={{ color: status === 'completed' ? '#9a8a7a' : '#5c4a3a' }}
+                      style={{
+                        color: status === 'completed' ? '#9a8a7a' : '#3d2e20',
+                        textShadow: '0 1px 2px rgba(245,240,230,0.9)',
+                      }}
                     >
                       {art.secret}
                     </p>
                   </div>
 
                   <div className="mt-2.5">
-                    <p className="text-[9px] tracking-[0.1em]" style={{ color: '#a08a6a' }}>
+                    <p className="text-[9px] tracking-[0.1em]" style={{ color: '#7a6a5a' }}>
                       {art.archivalNote}
                     </p>
 

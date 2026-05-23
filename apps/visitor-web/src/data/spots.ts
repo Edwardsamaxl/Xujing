@@ -251,11 +251,16 @@ export function getEdge(from: string, to: string): SpotEdge | undefined {
   return SPOT_GRAPH[from]?.[to]
 }
 
+/** MVP 阶段静态配置，与后端 seed.ts 对齐 */
+const CROWD_CONFIG: Record<string, 'smooth' | 'moderate' | 'crowded'> = {
+  'spot-clock':    'crowded',   // 钟表馆：热门，常拥挤
+  'spot-treasure': 'crowded',   // 珍宝馆：热门，常拥挤
+  'spot-ceramic':  'moderate',  // 陶瓷馆：中等人流
+  'spot-yanxi':    'smooth',    // 延禧宫：冷门，需引流
+  'spot-shoukang': 'smooth',    // 寿康宫：冷门，需引流
+  'spot-cining':   'smooth',    // 慈宁宫：冷门，需引流
+}
+
 export function getCrowdLevel(spotId: string): 'smooth' | 'moderate' | 'crowded' {
-  const hour = new Date().getHours()
-  const hash = spotId.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
-  const seed = (hash + hour) % 3
-  if (seed === 0) return 'smooth'
-  if (seed === 1) return 'moderate'
-  return 'crowded'
+  return CROWD_CONFIG[spotId] ?? 'smooth'
 }

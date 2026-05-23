@@ -121,7 +121,7 @@ def draw_border(draw: ImageDraw.ImageDraw, gold: tuple[int, int, int], dark: boo
     ]:
         draw.rounded_rectangle((cx - 42, cy - 15, cx + 42, cy + 15), radius=12, outline=rgba(gold, 170), width=3)
         draw.ellipse((cx - 8, cy - 8, cx + 8, cy + 8), fill=rgba(gold, 155))
-        draw.arc((cx - 50 * sx, cy - 48 * sy, cx + 50 * sx, cy + 48 * sy), 0, 90, fill=rgba(gold, 115), width=2)
+        draw.arc((cx - 50, cy - 48, cx + 50, cy + 48), 0, 90, fill=rgba(gold, 115), width=2)
 
 
 def draw_left_tab(draw: ImageDraw.ImageDraw, panel: tuple[int, int, int], gold: tuple[int, int, int]) -> None:
@@ -166,13 +166,19 @@ def draw_seal_reserve(draw: ImageDraw.ImageDraw, spec: dict) -> None:
 
 
 def fade_left(image: Image.Image, start: int = 680, end: int = 1020) -> Image.Image:
-    alpha = Image.new("L", SIZE, 255)
+    source_alpha = image.getchannel("A")
+    alpha = Image.new("L", SIZE, 0)
     apx = alpha.load()
+    spx = source_alpha.load()
     for y in range(SIZE[1]):
-        for x in range(start, end):
-            apx[x, y] = int(255 * ((x - start) / (end - start)) ** 0.85)
-        for x in range(0, start):
-            apx[x, y] = 0
+        for x in range(SIZE[0]):
+            if x < start:
+                mask = 0
+            elif x < end:
+                mask = int(255 * ((x - start) / (end - start)) ** 0.85)
+            else:
+                mask = 255
+            apx[x, y] = spx[x, y] * mask // 255
     out = image.copy()
     out.putalpha(alpha)
     return out

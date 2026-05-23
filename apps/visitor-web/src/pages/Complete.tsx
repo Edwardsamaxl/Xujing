@@ -165,7 +165,7 @@ export default function Complete() {
   return (
     <div className="min-h-screen bg-paper pb-8">
       <div
-        className={`mx-auto w-full max-w-[480px] px-5 pt-10 transition-all duration-500 ease-out ${
+        className={`mx-auto w-full max-w-[480px] px-5 pt-10 transition-[opacity,transform] duration-500 ease-out ${
           entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
         }`}
       >
@@ -173,7 +173,7 @@ export default function Complete() {
         <h1 className="font-display text-[28px] text-ink text-center tracking-[0.04em] leading-[1.3] mb-2">
           密档寻踪·已完成
         </h1>
-        <p className="text-center text-[16px] leading-[1.65] text-ink-light mb-8">
+        <p className="text-center text-[16px] leading-[1.65] text-ink-dim mb-8">
           你穿越了 {spotCountAnim} 座宫殿，找到了 {rewardCountAnim} 条隐藏线索
         </p>
 
@@ -181,7 +181,7 @@ export default function Complete() {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-1 h-4 bg-cinnabar rounded-full" />
-            <span className="text-[13px] text-ink-light tracking-[0.04em]">
+            <span className="text-[12px] text-ink-dim tracking-[0.04em]">
               勘验数据
             </span>
           </div>
@@ -205,7 +205,7 @@ export default function Complete() {
                         : 'none',
                   }}
                 >
-                  <div className="text-ink font-display text-[24px] font-bold leading-none">
+                  <div className="text-ink font-display text-[20px] font-bold leading-none">
                     {statValues[stat.key]}
                   </div>
                   <div className="text-ink-faint text-[11px] mt-2 leading-none tracking-wide">
@@ -224,7 +224,7 @@ export default function Complete() {
         <div className="mb-8">
           <div className="flex items-center gap-2 mb-3">
             <div className="w-1 h-4 bg-cinnabar rounded-full" />
-            <span className="text-[13px] text-ink-light tracking-[0.04em]">
+            <span className="text-[12px] text-ink-dim tracking-[0.04em]">
               勋章藏宝阁
             </span>
           </div>
@@ -245,7 +245,7 @@ export default function Complete() {
                 return (
                   <div key={item.id} className="flex flex-col items-center">
                     <div
-                      className={`relative w-full aspect-square flex items-center justify-center transition-all duration-500 ${
+                      className={`relative w-full aspect-square flex items-center justify-center transition-[opacity,transform] duration-500 ${
                         unlocked && revealed ? 'opacity-100' : 'opacity-40'
                       }`}
                     >
@@ -298,47 +298,35 @@ export default function Complete() {
         >
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-4 bg-cinnabar rounded-full" />
-            <span className="text-[13px] text-ink-light tracking-[0.04em]">
+            <span className="text-[12px] text-ink-dim tracking-[0.04em]">
               路线回顾
             </span>
           </div>
-          {completedSpots.length === 0 ? (
-            <p className="text-[13px] text-ink-faint">尚未勘验任何点位</p>
-          ) : (
-            <>
-              <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[13px] text-ink-light">
-                {completedSpots.map((spotId, i) => {
-                  const item = GRID_ITEMS.find((g) => g.id === spotId)
-                  if (!item) return null
-                  return (
-                    <span key={spotId} className="flex items-center">
-                      <span className="text-ink font-medium">{item.label}</span>
-                      {i < completedSpots.length - 1 && (
-                        <svg
-                          className="mx-1 h-3 w-3 text-gold/50"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                          viewBox="0 0 24 24"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M9 5l7 7-7 7"
-                          />
-                        </svg>
-                      )}
-                    </span>
-                  )
-                })}
-              </div>
-              {completedSpots.length < GRID_ITEMS.length && (
-                <p className="mt-3 text-[12px] text-ink-faint">
-                  剩余 {GRID_ITEMS.length - completedSpots.length} 处尚未勘验
-                </p>
-              )}
-            </>
-          )}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[12px] text-ink-dim">
+            {GRID_ITEMS.map((item, i) => {
+              const done = isNarrativeUnlocked(item.id)
+              return (
+                <span key={item.id} className="flex items-center">
+                  <span className={done ? 'text-ink font-medium' : ''}>{item.label}</span>
+                  {i < GRID_ITEMS.length - 1 && (
+                    <svg
+                      className="mx-1 h-3 w-3 text-ink-faint/30"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
+                  )}
+                </span>
+              )
+            })}
+          </div>
         </div>
 
         {/* ===== Action Buttons ===== */}
@@ -434,7 +422,7 @@ export default function Complete() {
               </div>
 
               {/* Caption */}
-              <p className="relative z-10 text-ink-light text-[12px] text-center leading-relaxed px-2">
+              <p className="relative z-10 text-ink-dim text-[12px] text-center leading-relaxed px-2">
                 我在故宫完成了 {posterSpotCount} 处历史碎片的溯源修复，
                 <br />
                 这是我留给紫禁城的数字印记。

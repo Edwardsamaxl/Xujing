@@ -1,5 +1,6 @@
 import { Router } from 'express'
 import { generateTask, generateSpotNarrative } from './engine'
+import { recommendSpot } from './route-planner'
 import { handleVoiceChat } from './voice-bridge'
 
 const router = Router()
@@ -16,6 +17,26 @@ router.post('/next-task', async (req, res) => {
   } catch (e) {
     console.error(e)
     res.status(500).json({ error: 'Failed to generate task' })
+  }
+})
+
+// Explore 页面顶部弱推荐
+router.post('/recommend', async (req, res) => {
+  const { visitorId, currentSpotId } = req.body
+  if (!visitorId) {
+    res.status(400).json({ error: 'visitorId required' })
+    return
+  }
+  try {
+    const result = await recommendSpot(visitorId, currentSpotId || null)
+    if (!result) {
+      res.status(404).json({ error: 'No recommendation available' })
+      return
+    }
+    res.json(result)
+  } catch (e) {
+    console.error(e)
+    res.status(500).json({ error: 'Failed to generate recommendation' })
   }
 })
 

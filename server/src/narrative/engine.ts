@@ -32,13 +32,6 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
   const checkIns = await getCheckInsByVisitor(visitorId)
   const completedSpotIds = new Set(checkIns.map(c => c.spotId))
 
-  // Route Planner: decide next spot
-  const nextSpot = await planRoute({
-    interestTags: visitor.interestTags,
-    completedSpotIds,
-    allSpots,
-  })
-
   // Determine current spot
   let currentSpot = allSpots.find(s => s.id === visitor.currentSpotId)
   if (!currentSpot && checkIns.length > 0) {
@@ -48,6 +41,14 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
   if (!currentSpot) {
     currentSpot = allSpots[0]
   }
+
+  // Route Planner: decide next spot
+  const nextSpot = await planRoute({
+    interestTags: visitor.interestTags,
+    completedSpotIds,
+    allSpots,
+    currentSpotId: currentSpot?.id,
+  })
 
   // Fetch knowledge base
   const primaryInterest = visitor.interestTags[0] || '历史'
@@ -100,6 +101,7 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
   // Stats
   const targetSpots = allSpots.filter(s => s.type === 'cold')
   const completedTargets = targetSpots.filter(s => completedSpotIds.has(s.id))
+  const allCompleted = completedTargets.length >= targetSpots.length
   const isLast = completedTargets.length + 1 >= targetSpots.length
   const reward = campaign.rewards[0]
 
@@ -110,9 +112,11 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
     currentSpotName: currentSpot.name,
     narrativeTitle: fallbackTitle,
     narrativeText,
-    destinationHint: `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, ''),
-    nextSpotId: nextSpot.id,
-    nextSpotName: nextSpot.name,
+    destinationHint: allCompleted
+      ? ''
+      : `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, ''),
+    nextSpotId: allCompleted ? '' : nextSpot.id,
+    nextSpotName: allCompleted ? '' : nextSpot.name,
     taskType: 'visit',
     taskIndex,
     totalTasks,
@@ -159,6 +163,7 @@ export async function generateSpotNarrative(
     interestTags: visitor.interestTags,
     completedSpotIds,
     allSpots,
+    currentSpotId: currentSpot.id,
   })
 
   const primaryInterest = interestTag || visitor.interestTags[0] || '历史'
@@ -204,6 +209,7 @@ export async function generateSpotNarrative(
 
   const targetSpots = allSpots.filter(s => s.type === 'cold')
   const completedTargets = targetSpots.filter(s => completedSpotIds.has(s.id))
+  const allCompleted = completedTargets.length >= targetSpots.length
   const isLast = completedTargets.length + 1 >= targetSpots.length
   const reward = campaign.rewards[0]
 
@@ -211,9 +217,11 @@ export async function generateSpotNarrative(
     currentSpotName: currentSpot.name,
     narrativeTitle: fallbackTitle,
     narrativeText,
-    destinationHint: `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, ''),
-    nextSpotId: nextSpot.id,
-    nextSpotName: nextSpot.name,
+    destinationHint: allCompleted
+      ? ''
+      : `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, ''),
+    nextSpotId: allCompleted ? '' : nextSpot.id,
+    nextSpotName: allCompleted ? '' : nextSpot.name,
     taskType: 'visit',
     taskIndex: completedTargets.length,
     totalTasks: targetSpots.length,

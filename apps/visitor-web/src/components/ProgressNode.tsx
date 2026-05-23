@@ -9,7 +9,7 @@ export default function ProgressNode({ total, current }: ProgressNodeProps) {
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} className="flex items-center">
           <div
-            className={`rounded-full transition-all duration-500 ${
+            className={`rounded-full transition-[width,height,background-color,box-shadow] duration-500 ${
               i < current
                 ? 'h-[10px] w-[10px] bg-cinnabar'
                 : i === current

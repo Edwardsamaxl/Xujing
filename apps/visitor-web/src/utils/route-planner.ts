@@ -32,7 +32,7 @@ export function getRouteTo(targetSpotId: string): RouteInfo {
     targetSpotId,
     distance,
     walkTime,
-    isNearby: distance < 100,
+    isNearby: distance < 150,
   }
 }
 
@@ -49,12 +49,10 @@ export function getRandomUnexploredSpot(): string | null {
 }
 
 export function getRecommendedSpot(): string | null {
+  // 已废弃：Explore 页面现在直接调用后端 /api/narrative/recommend
   const remaining = getRemainingSpots()
   if (remaining.length === 0) return null
-  // 弱推荐：简单 hash 推荐一个
-  const hour = new Date().getHours()
-  const idx = (hour + remaining.length) % remaining.length
-  return remaining[idx]
+  return remaining[0]
 }
 
 /**
@@ -88,10 +86,11 @@ export function getTotalRouteStats(completedInOrder: string[]): {
 }
 
 export function getNextRecommendedSpot(afterSpotId: string): string | null {
+  // 已废弃：Narrative 页面的下一站推荐由后端 /api/narrative/next-task 统一处理
   const remaining = getRemainingSpots().filter((id) => id !== afterSpotId)
   if (remaining.length === 0) return null
 
-  // 找距离最近的
+  // 找距离最近的作为兜底
   let nearest = remaining[0]
   let minDist = Infinity
   for (const id of remaining) {

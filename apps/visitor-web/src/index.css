@@ -353,7 +353,7 @@
 
 .start-title-dot {
   font-family: 'Songti SC', 'STSong', 'Noto Serif SC', 'SimSun', serif;
-  font-size: 18px;
+  font-size: 16px;
   line-height: 1;
   color: #C13A3A;
 }
@@ -373,7 +373,7 @@
 .start-subtitle {
   margin: 0 auto 44px;
   max-width: 312px;
-  font-size: 13px;
+  font-size: 16px;
   line-height: 1.85;
   letter-spacing: 0.08em;
 }
@@ -652,6 +652,18 @@
 
   .start-kicker.start-imprint {
     color: #C13A3A;
+  }
+}
+
+/* prefers-reduced-motion: disable all non-essential animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
 

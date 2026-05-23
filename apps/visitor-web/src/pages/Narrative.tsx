@@ -1,13 +1,12 @@
 import { useEffect, useState, useRef, useCallback } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TopNav from '../components/TopNav'
-import { getVisitorId, getInterestTag, isNarrativeUnlocked } from '../utils/storage'
-import { SPOTS, getAllSpots } from '../data/spots'
+import { getVisitorId, getInterestTag, isNarrativeUnlocked, getCompletedSpots } from '../utils/storage'
+import { SPOTS, SPOT_IDS, getAllSpots } from '../data/spots'
 import { getTemplatesBySpot, NARRATIVE_TEMPLATES } from '../data/narratives'
 import { getNextRecommendedSpot } from '../utils/route-planner'
 import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
-import { useVoicePreference } from '../hooks/useVoicePreference'
 import { askQuestion } from '../api/qa'
 import { Button } from '../components/Button'
 
@@ -48,9 +47,8 @@ export default function Narrative() {
   // 语音：识别 / 合成 / 偏好
   const sr = useSpeechRecognition('zh-CN')
   const tts = useSpeechSynthesis()
-  const voicePref = useVoicePreference()
   const isListening = sr.recording
-  const autoPlayedRef = useRef<string | null>(null)
+  const [speakingTarget, setSpeakingTarget] = useState<'narrative' | 'reply' | null>(null)
 
   const hintTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -86,12 +84,19 @@ export default function Narrative() {
       console.error(e)
       // Fallback to static template
       if (template) {
+        const completed = getCompletedSpots()
+        const allCompleted = completed.length >= SPOT_IDS.length
+        const nextId = !allCompleted && spotId ? getNextRecommendedSpot(spotId) : null
+        const nextSpot = nextId ? SPOTS[nextId] : null
+
         setNarrativeData({
           narrativeTitle: template.title,
           narrativeText: template.baseContent,
-          destinationHint: '',
-          nextSpotId: '',
-          nextSpotName: '',
+          destinationHint: nextSpot
+            ? `${nextSpot.name}·${nextSpot.description || ''}`.replace(/·$/, '')
+            : '',
+          nextSpotId: nextSpot?.id || '',
+          nextSpotName: nextSpot?.name || '',
         })
       }
     } finally {
@@ -148,25 +153,19 @@ export default function Narrative() {
     narrativeData?.narrativeText || template?.baseContent || ''
 
   useEffect(() => {
-    if (!tts.supported || !displayedNarrativeText) return
-    if (voicePref.pref === 'off') return
-    if (typedText !== displayedNarrativeText) return
-    const key = `${spotId}::${activeTag}::${displayedNarrativeText.length}`
-    if (autoPlayedRef.current === key) return
-    autoPlayedRef.current = key
-    tts.speak(displayedNarrativeText)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typedText, displayedNarrativeText, voicePref.pref, tts.supported])
-
-  useEffect(() => {
     tts.cancel()
-    autoPlayedRef.current = null
     setShowReply(false)
     setAiReply('')
     setUserQuestion('')
     setIsThinking(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spotId, activeTag])
+
+  useEffect(() => {
+    if (!tts.speaking && !tts.paused) {
+      setSpeakingTarget(null)
+    }
+  }, [tts.speaking, tts.paused])
 
   useEffect(() => {
     if (!sr.finalText) return
@@ -194,7 +193,6 @@ export default function Narrative() {
       })
       setAiReply(answer)
       setShowReply(true)
-      if (tts.supported && answer) tts.speak(answer)
     } catch {
       setAiReply('网络暂时中断，请稍后再问。')
       setShowReply(true)
@@ -244,33 +242,32 @@ export default function Narrative() {
     sr.start()
   }
 
-  const handleSubmitText = () => {
-    const q = textInput.trim()
-    if (!q || isThinking || isListening || sr.transcribing) return
-    setTextInput('')
-    void handleAsk(q)
-  }
-
-  /**
-   * 用户点击 AI 语音条切换朗读 / 暂停 / 继续。
-   * 暂停 / 继续仅控制当前播放，不动全局偏好——避免「我只是想暂停一下，
-   * 结果下次进任何剧情都不自动朗读」的回归。
-   * 只有用户从 idle 主动点「点此朗读」时，才把 pref 升为 'on'。
-   */
-  const handleToggleTts = () => {
-    if (!tts.supported) return
-    if (tts.speaking && !tts.paused) {
+  const handleToggleNarrativeTts = () => {
+    if (!tts.supported || !template) return
+    if (speakingTarget === 'narrative' && tts.speaking && !tts.paused) {
       tts.pause()
       return
     }
-    if (tts.paused) {
+    if (speakingTarget === 'narrative' && tts.paused) {
       tts.resume()
       return
     }
-    const text = showReply && aiReply ? aiReply : displayedNarrativeText
-    if (!text) return
-    voicePref.set('on')
-    tts.speak(text)
+    setSpeakingTarget('narrative')
+    tts.speak(template.baseContent)
+  }
+
+  const handleToggleReplyTts = () => {
+    if (!tts.supported || !aiReply) return
+    if (speakingTarget === 'reply' && tts.speaking && !tts.paused) {
+      tts.pause()
+      return
+    }
+    if (speakingTarget === 'reply' && tts.paused) {
+      tts.resume()
+      return
+    }
+    setSpeakingTarget('reply')
+    tts.speak(aiReply)
   }
 
   const displayTitle = narrativeData?.narrativeTitle || template?.title || spot.name
@@ -283,7 +280,7 @@ export default function Narrative() {
       <div className="sticky top-14 z-40 flex justify-end px-5 py-2 bg-paper/80 backdrop-blur-md border-b border-scroll-line/30">
         <button
           onClick={() => setShowArchive(true)}
-          className="flex items-center gap-1.5 text-[12px] text-gold tracking-[0.04em] px-3 py-1.5 rounded-full border border-gold/30 hover:bg-gold/5 transition-all"
+          className="flex items-center gap-1.5 text-[12px] text-gold tracking-[0.04em] px-3 h-10 rounded-full border border-gold/30 hover:bg-gold/5 transition-[background-color,opacity]"
         >
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
@@ -295,7 +292,7 @@ export default function Narrative() {
       <div className="flex-1 flex flex-col">
         {/* Top: Narrative area ~50% */}
         <div className="flex-1 px-5 pt-4 pb-4 min-h-[45%]">
-          <div className={`transition-all duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
+          <div className={`transition-[opacity,transform] duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'}`}>
             {/* Main card */}
             <div className="card-elevated rounded-xl overflow-hidden">
               {/* Scroll header decoration */}
@@ -309,43 +306,43 @@ export default function Narrative() {
 
               <div className="px-5 pt-5 pb-6">
                 {/* Spot name */}
-                <h2 className="font-display text-[22px] text-ink">{displayTitle}</h2>
+                <h2 className="font-display text-[20px] text-ink">{displayTitle}</h2>
 
                 {/* Artifact anchor */}
                 {template && (
-                  <p className="text-[14px] leading-[1.6] text-ink-dim mt-2">{template.title}</p>
+                  <p className="text-[12px] leading-[1.6] text-ink-dim mt-2">{template.title}</p>
                 )}
 
-                {/* AI voice indicator: 真朗读 / 暂停 / 继续 */}
+                {/* AI voice indicator: 朗读剧情 */}
                 {tts.supported && (
                   <button
                     type="button"
-                    onClick={handleToggleTts}
-                    className="mt-4 flex items-center gap-2 px-2 py-1 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"
-                    aria-label={tts.speaking ? '暂停朗读' : '朗读剧情'}
+                    onClick={handleToggleNarrativeTts}
+                    className="mt-4 flex items-center gap-2 px-2 h-10 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"}  ,replace_all:false}  ,{
+                    aria-label={speakingTarget === 'narrative' && tts.speaking ? '暂停朗读' : '朗读剧情'}
                   >
                     <div className="flex items-center gap-0.5">
                       <span
-                        className={`w-0.5 h-3 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        className={`w-0.5 h-3 rounded-full bg-cinnabar/60 ${speakingTarget === 'narrative' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
                         style={{ animationDelay: '0ms' }}
                       />
                       <span
-                        className={`w-0.5 h-4 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        className={`w-0.5 h-4 rounded-full bg-cinnabar/60 ${speakingTarget === 'narrative' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
                         style={{ animationDelay: '150ms' }}
                       />
                       <span
-                        className={`w-0.5 h-2.5 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        className={`w-0.5 h-2.5 rounded-full bg-cinnabar/60 ${speakingTarget === 'narrative' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
                         style={{ animationDelay: '300ms' }}
                       />
                       <span
-                        className={`w-0.5 h-3.5 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        className={`w-0.5 h-3.5 rounded-full bg-cinnabar/60 ${speakingTarget === 'narrative' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
                         style={{ animationDelay: '450ms' }}
                       />
                     </div>
                     <span className="text-[12px] text-ink-faint">
-                      {tts.speaking && !tts.paused
+                      {speakingTarget === 'narrative' && tts.speaking && !tts.paused
                         ? 'AI 语音讲解中 · 点此暂停'
-                        : tts.paused
+                        : speakingTarget === 'narrative' && tts.paused
                           ? '已暂停 · 点此继续'
                           : '点此朗读剧情'}
                     </span>
@@ -354,7 +351,7 @@ export default function Narrative() {
 
                 {/* Narrative body with typewriter */}
                 {isLoading ? (
-                  <p className="text-[14px] text-ink-dim mt-4">正在生成专属叙事…</p>
+                  <p className="text-[12px] text-ink-dim mt-4">正在生成专属叙事…</p>
                 ) : (
                   <div className="text-[16px] leading-[1.85] text-ink mt-4 min-h-[80px]">
                     {typedText}
@@ -364,7 +361,7 @@ export default function Narrative() {
 
                 {/* Flavor text */}
                 {template?.flavorText && (
-                  <p className="text-center text-[15px] leading-[1.6] text-gold/70 italic font-serif mt-5">
+                  <p className="text-center text-[16px] leading-[1.6] text-gold/70 italic font-serif mt-5">
                     &ldquo;{template.flavorText}&rdquo;
                   </p>
                 )}
@@ -372,13 +369,13 @@ export default function Narrative() {
                 {/* Next spot hook — from AI narrative data */}
                 {narrativeData?.nextSpotName ? (
                   <div className="mt-5 pl-3 border-l-2 border-gold/30">
-                    <p className="text-[14px] leading-[1.7] text-ink-dim">
+                    <p className="text-[12px] leading-[1.7] text-ink-dim">
                       下一处秘辛在{narrativeData.nextSpotName}——{narrativeData.destinationHint}
                     </p>
                   </div>
                 ) : (
                   <div className="mt-5 pl-3 border-l-2 border-gold/30">
-                    <p className="text-[14px] leading-[1.7] text-ink-dim">
+                    <p className="text-[12px] leading-[1.7] text-ink-dim">
                       六处秘辛皆已勘验完毕，你的紫禁城密档已收录完整。
                     </p>
                   </div>
@@ -397,9 +394,9 @@ export default function Narrative() {
                       <button
                         key={t.interestTag}
                         onClick={() => setActiveTag(t.interestTag)}
-                        className={`px-3.5 py-2 rounded-full text-[13px] tracking-[0.04em] transition-all duration-200 ${
+                        className={`px-3.5 py-2 rounded-full text-[12px] tracking-[0.04em] transition-[transform,opacity,background-color,border-color,color] duration-200 ${
                           isActive
-                            ? 'bg-cinnabar text-white shadow-[0_2px_8px_rgba(163,38,38,0.2)]'
+                            ? 'bg-cinnabar text-paper shadow-[0_2px_8px_rgba(163,38,38,0.2)]'
                             : 'bg-paper-deep border border-scroll-line text-ink-dim hover:border-gold/40 hover:text-ink'
                         }`}
                       >
@@ -418,14 +415,48 @@ export default function Narrative() {
                   <div className="w-1 h-1 rounded-full bg-gold" />
                   <span className="text-[11px] text-gold/70 tracking-[0.04em]">你问</span>
                 </div>
-                <p className="text-[14px] text-ink-dim mb-3">{userQuestion}</p>
+                <p className="text-[12px] text-ink-dim mb-3">{userQuestion}</p>
                 <div className="w-full h-px bg-gold/10 mb-3" />
                 <div className="flex items-start gap-2">
                   <div className="w-5 h-5 rounded-full bg-gold/20 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <span className="text-[10px] text-gold">AI</span>
                   </div>
-                  <p className="text-[14px] text-ink leading-[1.7]">{aiReply}</p>
+                  <p className="text-[12px] text-ink leading-[1.7]">{aiReply}</p>
                 </div>
+                {tts.supported && (
+                  <button
+                    type="button"
+                    onClick={handleToggleReplyTts}
+                    className="mt-3 flex items-center gap-2 px-2 h-10 -ml-2 rounded-full text-left transition-colors hover:bg-gold/10"
+                    aria-label={speakingTarget === 'reply' && tts.speaking ? '暂停朗读' : '朗读回答'}
+                  >
+                    <div className="flex items-center gap-0.5">
+                      <span
+                        className={`w-0.5 h-3 rounded-full bg-gold/60 ${speakingTarget === 'reply' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <span
+                        className={`w-0.5 h-4 rounded-full bg-gold/60 ${speakingTarget === 'reply' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <span
+                        className={`w-0.5 h-2.5 rounded-full bg-gold/60 ${speakingTarget === 'reply' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '300ms' }}
+                      />
+                      <span
+                        className={`w-0.5 h-3.5 rounded-full bg-gold/60 ${speakingTarget === 'reply' && tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '450ms' }}
+                      />
+                    </div>
+                    <span className="text-[12px] text-gold/80">
+                      {speakingTarget === 'reply' && tts.speaking && !tts.paused
+                        ? '朗读中 · 点此暂停'
+                        : speakingTarget === 'reply' && tts.paused
+                          ? '已暂停 · 点此继续'
+                          : '点此朗读回答'}
+                    </span>
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -435,14 +466,14 @@ export default function Narrative() {
         <div className="px-5 py-3">
           <div className="text-center">
             {!isListening && !sr.transcribing && !showReply && !isThinking && !sr.errorCode && (
-              <p className="text-[13px] text-ink-faint/80 tracking-[0.02em]">
+              <p className="text-[12px] text-ink-faint/80 tracking-[0.02em]">
                 {sr.supported
                   ? `你可以点击麦克风问我：${hints[0]}`
                   : '当前浏览器不支持麦克风录音，请改用支持 MediaRecorder 的浏览器'}
               </p>
             )}
             {sr.errorCode && !isListening && !sr.transcribing && !isThinking && (
-              <p className="text-[13px] text-cinnabar/90 tracking-[0.02em] px-4">
+              <p className="text-[12px] text-cinnabar/90 tracking-[0.02em] px-4">
                 {sr.errorCode === 'not-allowed'
                   ? '麦克风权限被拒。请在 Chrome 地址栏左侧 🔒 图标里把麦克风改为「允许」，并确认 macOS 系统设置 → 隐私与安全 → 麦克风 中已勾选 Chrome'
                   : sr.errorCode === 'no-mic'
@@ -457,17 +488,17 @@ export default function Narrative() {
               </p>
             )}
             {isListening && (
-              <p className="text-[13px] text-gold animate-pulse tracking-[0.02em]">
+              <p className="text-[12px] text-gold animate-pulse tracking-[0.02em]">
                 正在聆听您的疑问…（再点一次麦克风结束）
               </p>
             )}
             {sr.transcribing && (
-              <p className="text-[13px] text-gold/80 tracking-[0.02em] animate-pulse">
+              <p className="text-[12px] text-gold/80 tracking-[0.02em] animate-pulse">
                 正在识别您说的话…
               </p>
             )}
             {isThinking && (
-              <p className="text-[13px] text-cinnabar/80 tracking-[0.02em] animate-pulse">
+              <p className="text-[12px] text-cinnabar/80 tracking-[0.02em] animate-pulse">
                 正在为您查阅资料…
               </p>
             )}
@@ -499,7 +530,7 @@ export default function Narrative() {
                     : '点击开始提问'
               }
               aria-pressed={isListening}
-              className="relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
+              className="relative w-16 h-16 rounded-full flex items-center justify-center transition-[transform,opacity,border-color] duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: isListening ? '#A32626' : '#F7F4ED',
                 border: `2px solid ${isListening ? '#A32626' : '#D4CFC3'}`,
@@ -589,6 +620,7 @@ export default function Narrative() {
               variant="primary"
               fullWidth
               onClick={handleNextSpot}
+              className="h-12 w-full rounded-full bg-cinnabar text-[16px] font-medium text-paper tracking-[0.04em] transition-[transform,opacity,box-shadow] duration-200 ease-out active:scale-[0.96] hover:shadow-[0_4px_20px_rgba(163,38,38,0.25)]"
               style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
               去下一个地点
@@ -608,7 +640,7 @@ export default function Narrative() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-5 py-4 border-b border-scroll-line/50">
-              <h3 className="font-display text-[18px] text-ink">秘辛收藏册</h3>
+              <h3 className="font-display text-[20px] text-ink">秘辛收藏册</h3>
               <button
                 onClick={() => setShowArchive(false)}
                 className="w-8 h-8 flex items-center justify-center text-ink-dim hover:text-ink"
@@ -641,14 +673,14 @@ export default function Narrative() {
                     } ${unlocked && s.id !== spotId ? 'cursor-pointer hover:bg-paper-deep/80 transition-colors' : ''}`}
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className={`font-display text-[15px] ${
+                      <span className={`font-display text-[16px] ${
                         s.id === spotId ? 'text-cinnabar' : unlocked ? 'text-ink' : 'text-ink-faint'
                       }`}>
                         {s.name}
                       </span>
                       {s.id === spotId ? (
                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-cinnabar rotate-[-12deg]">
-                          <span className="text-white font-display text-[8px]">勘</span>
+                          <span className="text-paper font-display text-[8px]">勘</span>
                         </span>
                       ) : unlocked ? (
                         <span className="inline-flex items-center justify-center w-5 h-5 rounded-full border border-cinnabar/50 rotate-[-12deg]">
@@ -662,7 +694,7 @@ export default function Narrative() {
                       )}
                     </div>
                     {unlocked && tmpl ? (
-                      <p className={`text-[13px] leading-[1.5] line-clamp-2 ${
+                      <p className={`text-[12px] leading-[1.5] line-clamp-2 ${
                         s.id === spotId ? 'text-cinnabar/70' : 'text-ink-dim'
                       }`}>{tmpl.baseContent}</p>
                     ) : (
