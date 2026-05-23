@@ -174,18 +174,17 @@ export default function Narrative() {
     }
   }
 
-  const handleMicStart = () => {
-    if (!sr.supported) return
+  const handleMicToggle = () => {
+    if (!sr.supported || isThinking) return
+    if (isListening) {
+      sr.stop()
+      return
+    }
     setShowReply(false)
     setAiReply('')
     setUserQuestion('')
     setIsThinking(false)
     sr.start()
-  }
-
-  const handleMicEnd = () => {
-    if (!sr.supported) return
-    sr.stop()
   }
 
   /** 用户点击 AI 语音条切换朗读 / 暂停 / 继续，并把偏好写入持久化 */
@@ -357,18 +356,36 @@ export default function Narrative() {
         {/* Middle: Thinking feedback area ~20% */}
         <div className="px-5 py-3">
           <div className="text-center">
-            {!isListening && !showReply && !isThinking && (
+            {!isListening && !sr.transcribing && !showReply && !isThinking && !sr.errorCode && (
               <p className="text-[13px] text-ink-faint/80 tracking-[0.02em]">
                 {sr.supported
-                  ? `你可以长按麦克风问我：${hints[0]}`
-                  : '当前浏览器不支持语音识别，可点击麦克风以外的方式提问'}
+                  ? `你可以点击麦克风问我：${hints[0]}`
+                  : '当前浏览器不支持麦克风录音，请改用支持 MediaRecorder 的浏览器'}
+              </p>
+            )}
+            {sr.errorCode && !isListening && !sr.transcribing && !isThinking && (
+              <p className="text-[13px] text-cinnabar/90 tracking-[0.02em] px-4">
+                {sr.errorCode === 'not-allowed'
+                  ? '麦克风权限被拒。请在 Chrome 地址栏左侧 🔒 图标里把麦克风改为「允许」，并确认 macOS 系统设置 → 隐私与安全 → 麦克风 中已勾选 Chrome'
+                  : sr.errorCode === 'no-mic'
+                    ? '没有检测到可用的麦克风设备'
+                    : sr.errorCode === 'no-speech'
+                      ? '没有识别到内容，请靠近麦克风再说一次'
+                      : sr.errorCode === 'asr-failed'
+                        ? '语音识别服务暂时不可用，请稍后重试'
+                        : sr.errorCode === 'recorder-failed' || sr.errorCode === 'mic-failed'
+                          ? '录音失败，请刷新页面重试'
+                          : `语音识别异常：${sr.errorCode}（按 F12 查看控制台）`}
               </p>
             )}
             {isListening && (
               <p className="text-[13px] text-gold animate-pulse tracking-[0.02em]">
-                {sr.transcript
-                  ? `正在聆听：${sr.transcript}`
-                  : '正在聆听您的疑问…'}
+                正在聆听您的疑问…（再点一次麦克风结束）
+              </p>
+            )}
+            {sr.transcribing && (
+              <p className="text-[13px] text-gold/80 tracking-[0.02em] animate-pulse">
+                正在识别您说的话…
               </p>
             )}
             {isThinking && (
@@ -394,13 +411,16 @@ export default function Narrative() {
           {/* Mic button with breathing glow */}
           <div className="flex justify-center">
             <button
-              disabled={!sr.supported || isThinking}
-              onMouseDown={handleMicStart}
-              onMouseUp={handleMicEnd}
-              onTouchStart={handleMicStart}
-              onTouchEnd={handleMicEnd}
-              onMouseLeave={() => isListening && handleMicEnd()}
-              aria-label={sr.supported ? '长按提问' : '当前浏览器不支持语音识别'}
+              disabled={!sr.supported || isThinking || sr.transcribing}
+              onClick={handleMicToggle}
+              aria-label={
+                !sr.supported
+                  ? '当前浏览器不支持语音识别'
+                  : isListening
+                    ? '点击停止录音'
+                    : '点击开始提问'
+              }
+              aria-pressed={isListening}
               className="relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: isListening ? '#A32626' : '#F7F4ED',
@@ -447,10 +467,12 @@ export default function Narrative() {
             {!sr.supported
               ? '当前浏览器不支持语音识别'
               : isListening
-                ? '松开结束提问'
-                : isThinking
-                  ? '正在思考…'
-                  : '长按麦克风提问'}
+                ? '再点一次结束提问'
+                : sr.transcribing
+                  ? '正在识别…'
+                  : isThinking
+                    ? '正在思考…'
+                    : '点击麦克风开始提问'}
           </p>
 
           {/* Bottom CTA */}
