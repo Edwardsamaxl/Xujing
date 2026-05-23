@@ -1,7 +1,7 @@
 import { render as rtlRender, screen } from '@testing-library/react'
-import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
+import { MemoryRouter, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { vi } from 'vitest'
+import { vi, expect } from 'vitest'
 import App from '../App'
 
 export function LocationDisplay() {
@@ -47,9 +47,12 @@ export function mockFetch(response: any) {
   return mock
 }
 
-export function mockLocalStorage(visitorId: string | null) {
+export function mockLocalStorage(visitorId: string | null, interestTag?: string) {
   const getItem = vi.fn((key: string) => {
     if (key === 'xujing_visitor_id') return visitorId
+    if (key === 'xujing_interest_tags') return interestTag ? JSON.stringify([interestTag]) : null
+    if (key === 'xujing_completed_spots') return '[]'
+    if (key === 'xujing_unlocked_narratives') return '[]'
     return null
   })
   Object.defineProperty(window, 'localStorage', {

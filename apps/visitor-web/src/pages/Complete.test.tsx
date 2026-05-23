@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Complete from './Complete'
@@ -24,7 +24,7 @@ describe('Complete', () => {
 
     renderWithRouter(<Complete />, { initialEntries: ['/complete'] })
 
-    await waitFor(() => expect(screen.getByText('密档寻踪 · 已结案')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('叙境寻踪 · 已结案')).toBeInTheDocument())
     expect(screen.getAllByText('奉先殿·钟表馆').length).toBeGreaterThanOrEqual(1)
 
     await userEvent.click(screen.getByText('再探一次'))

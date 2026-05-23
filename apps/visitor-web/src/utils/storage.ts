@@ -1,9 +1,8 @@
 const VISITOR_KEY = 'xujing_visitor_id'
 const COMPLETED_KEY = 'xujing_completed_spots'
-const FACTION_KEY = 'xujing_faction'
-const STYLE_KEY = 'xujing_style'
-const ROUTE_MODE_KEY = 'xujing_route_mode'
-const CURRENT_SPOT_KEY = 'xujing_current_spot'
+const INTEREST_KEY = 'xujing_interest_tags'
+const CURRENT_TARGET_KEY = 'xujing_current_target'
+const UNLOCKED_NARRATIVES_KEY = 'xujing_unlocked_narratives'
 
 export function getVisitorId(): string | null {
   return localStorage.getItem(VISITOR_KEY)
@@ -30,56 +29,58 @@ export function addCompletedSpot(spotId: string) {
   }
 }
 
-export function getFaction(): string | null {
-  return localStorage.getItem(FACTION_KEY)
+export function isSpotCompleted(spotId: string): boolean {
+  return getCompletedSpots().includes(spotId)
 }
 
-export function setFaction(faction: string) {
-  localStorage.setItem(FACTION_KEY, faction)
+export function getInterestTag(): string {
+  const raw = localStorage.getItem(INTEREST_KEY)
+  try {
+    const parsed = raw ? JSON.parse(raw) : []
+    return Array.isArray(parsed) ? parsed[0] || '历史' : '历史'
+  } catch {
+    return '历史'
+  }
 }
 
-export function getStyle(): string | null {
-  return localStorage.getItem(STYLE_KEY)
+export function setInterestTag(tag: string) {
+  localStorage.setItem(INTEREST_KEY, JSON.stringify([tag]))
 }
 
-export function setStyle(style: string) {
-  localStorage.setItem(STYLE_KEY, style)
+export function getCurrentTarget(): string | null {
+  return localStorage.getItem(CURRENT_TARGET_KEY)
 }
 
-export type RouteMode = 'archaeology' | 'full' | 'express'
-
-const DEFAULT_ROUTE_MODE: RouteMode = 'archaeology'
-
-export function getRouteMode(): RouteMode {
-  const raw = localStorage.getItem(ROUTE_MODE_KEY)
-  if (raw === 'archaeology' || raw === 'full' || raw === 'express') return raw
-  return DEFAULT_ROUTE_MODE
+export function setCurrentTarget(spotId: string | null) {
+  if (spotId) localStorage.setItem(CURRENT_TARGET_KEY, spotId)
+  else localStorage.removeItem(CURRENT_TARGET_KEY)
 }
 
-export function setRouteMode(mode: RouteMode) {
-  localStorage.setItem(ROUTE_MODE_KEY, mode)
+export function getUnlockedNarratives(): string[] {
+  const raw = localStorage.getItem(UNLOCKED_NARRATIVES_KEY)
+  try {
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
 }
 
-export function getCurrentSpot(): string | null {
-  return localStorage.getItem(CURRENT_SPOT_KEY)
+export function unlockNarrative(spotId: string) {
+  const unlocked = getUnlockedNarratives()
+  if (!unlocked.includes(spotId)) {
+    unlocked.push(spotId)
+    localStorage.setItem(UNLOCKED_NARRATIVES_KEY, JSON.stringify(unlocked))
+  }
 }
 
-export function setCurrentSpot(spotId: string | null) {
-  if (spotId) localStorage.setItem(CURRENT_SPOT_KEY, spotId)
-  else localStorage.removeItem(CURRENT_SPOT_KEY)
-}
-
-export function getRemainingSpots(routeSpotIds: string[]): string[] {
-  const completed = getCompletedSpots()
-  const set = new Set(completed)
-  return routeSpotIds.filter((id) => !set.has(id))
+export function isNarrativeUnlocked(spotId: string): boolean {
+  return getUnlockedNarratives().includes(spotId)
 }
 
 export function clearVisitor() {
   localStorage.removeItem(VISITOR_KEY)
   localStorage.removeItem(COMPLETED_KEY)
-  localStorage.removeItem(FACTION_KEY)
-  localStorage.removeItem(STYLE_KEY)
-  localStorage.removeItem(ROUTE_MODE_KEY)
-  localStorage.removeItem(CURRENT_SPOT_KEY)
+  localStorage.removeItem(INTEREST_KEY)
+  localStorage.removeItem(CURRENT_TARGET_KEY)
+  localStorage.removeItem(UNLOCKED_NARRATIVES_KEY)
 }

@@ -10,6 +10,7 @@ export interface SpotDetail {
   name: string
   shortName: string
   description: string
+  teaser: string
   location: string
   dynasty: string
   yearBuilt: string
@@ -29,6 +30,7 @@ export const SPOTS: Record<string, SpotDetail> = {
     name: '钟表馆',
     shortName: '钟表馆',
     description: '中外钟表精品，机械与艺术的极致融合',
+    teaser: '滴答声里，两个帝国的对话已持续了三百年。',
     location: '紫禁城内廷东侧，东六宫以南',
     dynasty: '明永乐始建，清代重建',
     yearBuilt: '1420年（明永乐十八年）',
@@ -53,6 +55,7 @@ export const SPOTS: Record<string, SpotDetail> = {
     name: '珍宝馆',
     shortName: '珍宝馆',
     description: '清宫皇家珍藏，金碧辉煌的极致呈现',
+    teaser: '一座为归隐而建、却从未真正归隐的宫殿。',
     location: '紫禁城内廷东北部',
     dynasty: '清乾隆',
     yearBuilt: '1771—1776年（乾隆三十六至四十一年）',
@@ -77,6 +80,7 @@ export const SPOTS: Record<string, SpotDetail> = {
     name: '武英殿·陶瓷馆',
     shortName: '陶瓷馆',
     description: '从新石器到清末，八千年陶瓷文明',
+    teaser: '八千年窑火不熄，每一代匠人都在土与火中创造奇迹。',
     location: '紫禁城外朝西路',
     dynasty: '明永乐始建',
     yearBuilt: '1420年（明永乐十八年）',
@@ -101,6 +105,7 @@ export const SPOTS: Record<string, SpotDetail> = {
     name: '延禧宫',
     shortName: '延禧宫',
     description: '紫禁城中唯一的西洋式"烂尾楼"',
+    teaser: '一个帝国末日的前夜，有人想做一场最华丽的梦。',
     location: '紫禁城东六宫之一',
     dynasty: '明永乐始建，清末改建',
     yearBuilt: '1420年始建，1909年改建灵沼轩',
@@ -125,6 +130,7 @@ export const SPOTS: Record<string, SpotDetail> = {
     name: '寿康宫',
     shortName: '寿康宫',
     description: '乾隆为生母崇庆皇太后所建的颐养之所',
+    teaser: '一座宫殿的福气，来自一位活了八十六岁的母亲。',
     location: '紫禁城内廷外西路',
     dynasty: '清乾隆',
     yearBuilt: '1736年始建，1749年建成（乾隆元年至十四年）',
@@ -149,6 +155,7 @@ export const SPOTS: Record<string, SpotDetail> = {
     name: '慈宁宫',
     shortName: '慈宁宫',
     description: '清代皇太后正宫，现为历代雕塑精品陈列',
+    teaser: '从皇太后的寝宫到艺术的殿堂，这座宫殿见证了权力与美的交替。',
     location: '紫禁城内廷外西路',
     dynasty: '明嘉靖始建，清顺治重修',
     yearBuilt: '1536年（明嘉靖十五年）',

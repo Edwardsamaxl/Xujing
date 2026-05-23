@@ -1,248 +1,317 @@
-import { useNavigate } from 'react-router-dom'
-import { useEffect, useState, useCallback } from 'react'
-import { SPOT_SHORT_NAMES, getCrowdLevel } from '../data/spots'
-import { planRoute, getModeLabel, getModeDesc, getRouteSpots } from '../utils/route-planner'
-import { getCompletedSpots, setRouteMode, type RouteMode } from '../utils/storage'
+import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useEffect, useState, useMemo } from 'react'
+import { SPOTS, getCrowdLevel } from '../data/spots'
+import { addCompletedSpot, unlockNarrative, setCurrentTarget, getCompletedSpots } from '../utils/storage'
+import { getRouteTo } from '../utils/route-planner'
 
-const MODES: RouteMode[] = ['archaeology', 'full', 'express']
+/* ---------- 故宫简图坐标（viewBox 0 0 400 280）---------- */
+const ENTRANCE_POS = { x: 200, y: 262 }
+
+const SPOT_POS: Record<string, { x: number; y: number }> = {
+  'spot-treasure': { x: 282, y: 48 },   // 珍宝馆 — 东北
+  'spot-clock':    { x: 314, y: 96 },   // 钟表馆 — 内廷东
+  'spot-yanxi':    { x: 296, y: 148 },  // 延禧宫 — 东六宫
+  'spot-shoukang': { x: 106, y: 88 },   // 寿康宫 — 外西路偏北
+  'spot-cining':   { x: 88,  y: 152 },  // 慈宁宫 — 外西路
+  'spot-ceramic':  { x: 74,  y: 214 },  // 武英殿 — 外朝西
+}
+
+const COLD_SPOT_FLAVOR: Record<string, string> = {
+  'spot-yanxi': '灵沼轩的地下图纸需要你去拼凑……',
+  'spot-shoukang': '皇太后的暗格里，藏着一串以她头发穿制的佛珠……',
+  'spot-cining': '孝庄下嫁之谜的真相，或许就藏在这宫墙的某块砖下……',
+  'spot-clock': '铜壶滴漏中那片从未见过的金属薄片，在等你解读……',
+  'spot-treasure': '凤冠上消失的两颗东珠，似乎指向一段无人知晓的往事……',
+  'spot-ceramic': '碎瓷片上的四字款识，与展出真品有着微妙差异……',
+}
+
+/* 生成两点间的曲线路径（带轻微弧度，更像手绘） */
+function curvedPath(a: { x: number; y: number }, b: { x: number; y: number }): string {
+  const mx = (a.x + b.x) / 2
+  const my = (a.y + b.y) / 2
+  // 给中点加一点随机偏移，制造手绘感
+  const offX = (b.y - a.y) * 0.15
+  const offY = -(b.x - a.x) * 0.15
+  return `M ${a.x} ${a.y} Q ${mx + offX} ${my + offY} ${b.x} ${b.y}`
+}
 
 export default function Navigate() {
   const navigate = useNavigate()
-  const [entered, setEntered] = useState(false)
-  const [plan, setPlan] = useState(planRoute)
-  const [showModePicker, setShowModePicker] = useState(false)
+  const [searchParams] = useSearchParams()
+  const spotId = searchParams.get('spotId')
 
-  const refresh = useCallback(() => {
-    setPlan(planRoute())
-  }, [])
+  const [entered, setEntered] = useState(false)
+  const [showReward, setShowReward] = useState(false)
+  const [rewardFading, setRewardFading] = useState(false)
 
   useEffect(() => {
     const t = setTimeout(() => setEntered(true), 50)
     return () => clearTimeout(t)
   }, [])
 
-  useEffect(() => {
-    const onStorage = () => refresh()
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [refresh])
-
-  const crowdLevel = plan.nextSpotId ? getCrowdLevel(plan.nextSpotId) : 'smooth'
-  const crowdColor =
-    crowdLevel === 'smooth' ? 'bg-emerald-500' : crowdLevel === 'moderate' ? 'bg-amber-500' : 'bg-cinnabar'
-  const crowdText =
-    crowdLevel === 'smooth'
-      ? '当前区域人流平稳，建议立即前往'
-      : crowdLevel === 'moderate'
-        ? '当前区域人流中等，可正常前往'
-        : '当前区域较为拥挤，建议稍后再去或选择替代路线'
-
-  const routeSpots = getRouteSpots(plan.mode)
-  const completedSet = new Set(getCompletedSpots())
-
-  const handleSwitchMode = (mode: RouteMode) => {
-    setRouteMode(mode)
-    refresh()
-    setShowModePicker(false)
+  if (!spotId || !SPOTS[spotId]) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center px-6">
+        <p className="text-ink-dim mb-4">未选择目标地点</p>
+        <button
+          onClick={() => navigate('/explore')}
+          className="h-12 px-8 rounded-full bg-cinnabar text-white text-base font-medium transition-transform active:scale-[0.96]"
+        >
+          返回秘辛地图
+        </button>
+      </div>
+    )
   }
 
+  const spot = SPOTS[spotId]
+  const route = getRouteTo(spotId)
+  const crowd = getCrowdLevel(spotId)
+  const isColdSpot = crowd === 'smooth'
+
+  const completed = getCompletedSpots()
+  const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
+  const startPos = lastCompleted ? SPOT_POS[lastCompleted] : ENTRANCE_POS
+  const endPos = SPOT_POS[spotId]
+  const routePath = useMemo(() => {
+    if (!startPos || !endPos) return ''
+    return curvedPath(startPos, endPos)
+  }, [startPos, endPos])
+
   const handleArrived = () => {
-    if (plan.nextSpotId) {
-      navigate(`/check-in?spotId=${plan.nextSpotId}`)
-    }
+    // 1. 标记已勘验
+    addCompletedSpot(spotId)
+    // 2. 解锁秘辛
+    unlockNarrative(spotId)
+    // 3. 清除当前目标
+    setCurrentTarget(null)
+    // 4. 弹出奖励
+    setShowReward(true)
+    setTimeout(() => setRewardFading(true), 2000)
+    setTimeout(() => {
+      navigate(`/narrative?spotId=${spotId}`)
+    }, 2800)
+  }
+
+  const handleChangeTarget = () => {
+    setCurrentTarget(null)
+    navigate('/explore')
   }
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center px-6">
+    <div className="flex min-h-screen flex-col">
       <div
-        className={`w-full max-w-[400px] transition-all duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+        className={`flex-1 flex flex-col px-5 pt-8 pb-6 transition-all duration-500 ease-out ${
+          entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
+        }`}
       >
-        {/* Title */}
-        <div className="mb-8">
-          <p className="text-center text-[11px] text-gold tracking-[0.1em] font-serif uppercase mb-2">
-            {getModeLabel(plan.mode)}
+        {/* Header */}
+        <div className="mb-4">
+          <p className="text-[11px] text-gold tracking-[0.1em] font-serif uppercase mb-2">
+            Navigate · 路线引导
           </p>
-          <h1 className="text-center font-display text-[26px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
-            路径引导
+          <h1 className="font-display text-[26px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
+            前往 {spot.shortName}
           </h1>
-          <p className="text-center text-[13px] text-ink-dim leading-[1.6]">
-            {plan.remainingSpotIds.length === 0
-              ? '所有点位已探索完毕'
-              : `剩余 ${plan.remainingSpotIds.length} 个点位 · 约 ${plan.totalRemainingTime} 分钟`}
-          </p>
+          <p className="text-[13px] text-ink-dim leading-[1.6]">{spot.location}</p>
         </div>
 
-        {plan.remainingSpotIds.length > 0 ? (
-          <>
-            {/* Route card */}
-            <div className="card-elevated rounded-xl p-6 mb-6">
-              {/* Status bar */}
-              <div className="flex items-center gap-3 mb-5">
-                <div className="w-2 h-2 rounded-full bg-cinnabar animate-pulse" />
-                <span className="text-[13px] text-cinnabar font-medium">实时调度中</span>
-                <span className="ml-auto text-[11px] text-ink-faint">
-                  {plan.completedCount}/{plan.totalCount} 已完成
-                </span>
-              </div>
+        {/* Forbidden City mini map */}
+        <div className="relative w-full h-[260px] rounded-xl border border-scroll-line bg-paper-deep overflow-hidden mb-4">
+          <svg className="w-full h-full" viewBox="0 0 400 280" fill="none" preserveAspectRatio="xMidYMid meet">
+            {/* --- 背景纹理 --- */}
+            <defs>
+              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D4CFC3" strokeWidth="0.5" opacity="0.35" />
+              </pattern>
+              <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                <path d="M0,0 L6,3 L0,6 L1.5,3 Z" fill="#B8923A" />
+              </marker>
+            </defs>
+            <rect width="400" height="280" fill="url(#grid)" />
 
-              {/* Route info */}
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex-1 text-center">
-                  <p className="text-[11px] text-ink-faint tracking-[0.06em] mb-1">
-                    {plan.currentSpotId ? '当前地点' : '出发点'}
-                  </p>
-                  <p className="font-display text-[16px] text-ink">
-                    {plan.currentSpotId ? SPOT_SHORT_NAMES[plan.currentSpotId] ?? '入口' : '入口'}
-                  </p>
-                </div>
-                <div className="flex flex-col items-center px-2">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B8923A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M5 12h14M12 5l7 7-7 7" />
-                  </svg>
-                  <span className="text-[10px] text-gold mt-0.5">
-                    {plan.nextEdge ? `${plan.nextEdge.distance}m` : '---'}
-                  </span>
-                </div>
-                <div className="flex-1 text-center">
-                  <p className="text-[11px] text-ink-faint tracking-[0.06em] mb-1">下一地点</p>
-                  <p className="font-display text-[16px] text-ink">
-                    {plan.nextSpotId ? SPOT_SHORT_NAMES[plan.nextSpotId] ?? '---' : '---'}
-                  </p>
-                </div>
-              </div>
+            {/* --- 宫墙轮廓（简化） --- */}
+            {/* 外城 */}
+            <rect x="36" y="16" width="328" height="248" rx="2" stroke="#C4BBA8" strokeWidth="1.2" fill="none" opacity="0.6" />
+            {/* 内廷北墙（乾清门以北） */}
+            <rect x="92" y="16" width="216" height="124" rx="1" stroke="#C4BBA8" strokeWidth="0.8" fill="none" opacity="0.35" strokeDasharray="4 3" />
+            {/* 中轴线 */}
+            <line x1="200" y1="16" x2="200" y2="264" stroke="#C4BBA8" strokeWidth="0.6" opacity="0.25" strokeDasharray="3 3" />
+            {/* 东华门路 */}
+            <line x1="308" y1="16" x2="308" y2="264" stroke="#C4BBA8" strokeWidth="0.5" opacity="0.18" strokeDasharray="2 2" />
+            {/* 西华门路 */}
+            <line x1="92" y1="16" x2="92" y2="264" stroke="#C4BBA8" strokeWidth="0.5" opacity="0.18" strokeDasharray="2 2" />
 
-              {/* Time & congestion */}
-              <div className="rounded-lg bg-paper-deep border border-scroll-line p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-[12px] text-ink-dim">步行时间</span>
-                  <span className="text-[13px] text-ink font-medium">
-                    {plan.nextEdge ? `约 ${plan.nextEdge.walkTime} 分钟` : '---'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`w-1.5 h-1.5 rounded-full ${crowdColor}`} />
-                  <span className="text-[12px] text-ink-dim">{crowdText}</span>
-                </div>
-              </div>
-            </div>
+            {/* --- 区域文字标注 --- */}
+            <text x="200" y="78" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.5" fontFamily="LXGW WenKai, serif">内廷</text>
+            <text x="200" y="186" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.5" fontFamily="LXGW WenKai, serif">外朝</text>
+            <text x="200" y="274" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.5" fontFamily="LXGW WenKai, serif">午门</text>
 
-            {/* Path visualization */}
-            <div className="flex justify-center mb-8">
-              <div className="relative flex flex-col items-center">
-                {routeSpots.map((spotId, i) => {
-                  const isCompleted = completedSet.has(spotId)
-                  const isCurrent = spotId === plan.currentSpotId
-                  const isNext = spotId === plan.nextSpotId
-                  const isLast = i === routeSpots.length - 1
+            {/* --- 所有点位（非目标用淡色） --- */}
+            {Object.entries(SPOT_POS).map(([id, pos]) => {
+              const isTarget = id === spotId
+              const isCompleted = completed.includes(id)
+              const isStart = lastCompleted === id
+              const fill = isTarget ? '#A32626' : isCompleted ? '#B8923A' : isStart ? '#6B6860' : '#D4CFC3'
+              const r = isTarget ? 6 : 4
+              return (
+                <g key={id}>
+                  <circle cx={pos.x} cy={pos.y} r={r + 2} fill={fill} opacity="0.12" />
+                  <circle cx={pos.x} cy={pos.y} r={r} fill={fill} />
+                  {!isTarget && (
+                    <text
+                      x={pos.x}
+                      y={pos.y + (pos.x > 250 ? 14 : -8)}
+                      textAnchor="middle"
+                      fontSize="8"
+                      fill={isCompleted ? '#B8923A' : '#C4BBA8'}
+                      opacity={isCompleted ? 0.7 : 0.45}
+                      fontFamily="LXGW WenKai, serif"
+                    >
+                      {SPOTS[id].shortName}
+                    </text>
+                  )}
+                </g>
+              )
+            })}
 
-                  let dotClass = 'w-3 h-3 rounded-full '
-                  let lineClass = 'w-px '
-                  if (isCompleted) {
-                    dotClass += 'bg-gold'
-                    lineClass += 'bg-gold/40 h-8'
-                  } else if (isCurrent) {
-                    dotClass += 'bg-cinnabar animate-pulse'
-                    lineClass += 'bg-cinnabar/30 h-8'
-                  } else if (isNext) {
-                    dotClass += 'bg-cinnabar/60'
-                    lineClass += 'bg-scroll-line h-8'
-                  } else {
-                    dotClass += 'bg-scroll-line'
-                    lineClass += 'bg-scroll-line h-8'
-                  }
+            {/* --- 入口标记（若从午门出发） --- */}
+            {!lastCompleted && (
+              <g>
+                <circle cx={ENTRANCE_POS.x} cy={ENTRANCE_POS.y} r={5} fill="#6B6860" />
+                <text x={ENTRANCE_POS.x} y={ENTRANCE_POS.y - 10} textAnchor="middle" fontSize="8" fill="#6B6860" opacity="0.7" fontFamily="LXGW WenKai, serif">入口</text>
+              </g>
+            )}
 
-                  return (
-                    <div key={spotId} className="flex flex-col items-center">
-                      <div className="flex items-center gap-2">
-                        <div className={dotClass} />
-                        <span
-                          className={`text-[11px] whitespace-nowrap ${
-                            isCompleted || isCurrent ? 'text-ink' : 'text-ink-faint'
-                          }`}
-                        >
-                          {SPOT_SHORT_NAMES[spotId]}
-                        </span>
-                      </div>
-                      {!isLast && <div className={lineClass} />}
-                    </div>
-                  )
-                })}
-              </div>
-            </div>
+            {/* --- 路线虚线 --- */}
+            {routePath && (
+              <>
+                <path d={routePath} stroke="#B8923A" strokeWidth="2" strokeDasharray="5 4" opacity="0.5" fill="none" markerEnd="url(#arrow)" />
+                {/* 路线上的行走点动画 */}
+                <circle r="3" fill="#B8923A" opacity="0.8">
+                  <animateMotion dur="2.5s" repeatCount="indefinite" path={routePath} />
+                </circle>
+              </>
+            )}
 
-            {/* Bottom buttons */}
-            <div className="space-y-3">
-              <button
-                onClick={handleArrived}
-                className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] hover:shadow-[0_4px_16px_rgba(163,38,38,0.15)]"
-              >
-                我已到达
-              </button>
-              <button
-                onClick={() => setShowModePicker(true)}
-                className="h-12 w-full rounded-full border border-cinnabar text-cinnabar bg-transparent text-[15px] font-medium tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98]"
-              >
-                切换路线
-              </button>
-            </div>
-          </>
-        ) : (
-          /* All completed */
-          <div className="text-center">
-            <div className="w-16 h-16 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#B8923A" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M20 6L9 17l-5-5" />
-              </svg>
-            </div>
-            <p className="font-display text-[18px] text-ink mb-2">路线已完成</p>
-            <p className="text-[13px] text-ink-dim mb-8">你已探索完全部点位</p>
-            <button
-              onClick={() => navigate('/complete')}
-              className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98]"
-            >
-              查看成就
-            </button>
+            {/* --- 目标点位高亮 --- */}
+            {endPos && (
+              <g>
+                {/* 脉冲环 */}
+                <circle cx={endPos.x} cy={endPos.y} r={10} fill="none" stroke="#A32626" strokeWidth="1" opacity="0.3">
+                  <animate attributeName="r" values="8;16;8" dur="2.5s" repeatCount="indefinite" />
+                  <animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite" />
+                </circle>
+                <circle cx={endPos.x} cy={endPos.y} r={7} fill="#A32626" />
+                <circle cx={endPos.x} cy={endPos.y} r={3} fill="#fff" />
+                <text
+                  x={endPos.x}
+                  y={endPos.y + (endPos.x > 250 ? 18 : -12)}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="#A32626"
+                  fontWeight="500"
+                  fontFamily="LXGW WenKai, serif"
+                >
+                  {spot.shortName}
+                </text>
+              </g>
+            )}
+          </svg>
+
+          {/* 距离角标 */}
+          <div className="absolute top-3 right-3 bg-cinnabar/90 text-white rounded-full px-3 py-1 shadow-sm">
+            <p className="text-[12px] font-medium">{route.distance} 米</p>
           </div>
-        )}
+        </div>
+
+        {/* Route info card */}
+        <div className="card-elevated rounded-xl p-5 mb-4">
+          {/* Nearby hint */}
+          {route.isNearby && (
+            <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
+              <p className="text-[13px] text-emerald-700 text-center">
+                你似乎已在此地附近
+              </p>
+            </div>
+          )}
+
+          {/* Cold spot flavor */}
+          {isColdSpot && COLD_SPOT_FLAVOR[spotId] && (
+            <div className="mb-4 p-3 rounded-lg bg-paper-deep border border-gold/20">
+              <p className="text-[12px] text-gold/80 leading-[1.6] text-center italic">
+                {COLD_SPOT_FLAVOR[spotId]}
+              </p>
+            </div>
+          )}
+
+          {/* Distance & time */}
+          <div className="rounded-lg bg-paper-deep border border-scroll-line p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-ink-dim">步行距离</span>
+              <span className="text-[15px] text-ink font-medium">{route.distance} 米</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] text-ink-dim">预计时间</span>
+              <span className="text-[15px] text-ink font-medium">约 {route.walkTime} 分钟</span>
+            </div>
+            <div className="w-full h-px bg-scroll-line/30" />
+            <div className="flex items-center gap-2">
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  crowd === 'smooth'
+                    ? 'bg-emerald-500'
+                    : crowd === 'moderate'
+                    ? 'bg-amber-500'
+                    : 'bg-cinnabar'
+                }`}
+              />
+              <span className="text-[12px] text-ink-dim">
+                {crowd === 'smooth'
+                  ? '当前区域人流平稳，建议立即前往'
+                  : crowd === 'moderate'
+                  ? '当前区域人流中等，可正常前往'
+                  : '当前区域较为拥挤，建议稍后再去'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom buttons */}
+        <div className="mt-auto space-y-3">
+          <button
+            onClick={handleArrived}
+            disabled={showReward}
+            className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] disabled:opacity-50 hover:shadow-[0_4px_16px_rgba(163,38,38,0.15)]"
+          >
+            {showReward ? '勘验完成 · 解锁中...' : '我已到达'}
+          </button>
+          <button
+            onClick={handleChangeTarget}
+            disabled={showReward}
+            className="h-12 w-full rounded-full border border-cinnabar text-cinnabar bg-transparent text-[15px] font-medium tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] disabled:opacity-50"
+          >
+            更换目标
+          </button>
+        </div>
       </div>
 
-      {/* Mode picker modal */}
-      {showModePicker && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center" onClick={() => setShowModePicker(false)}>
-          <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" />
-          <div
-            className="relative w-full max-w-[400px] bg-paper rounded-t-2xl p-6 pb-10 animate-slide-up"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-8 h-1 rounded-full bg-scroll-line mx-auto mb-6" />
-            <h3 className="font-display text-[18px] text-ink text-center mb-6">选择路线</h3>
-            <div className="space-y-3">
-              {MODES.map((mode) => (
-                <button
-                  key={mode}
-                  onClick={() => handleSwitchMode(mode)}
-                  className={`w-full rounded-xl border p-4 text-left transition-all ${
-                    plan.mode === mode
-                      ? 'border-cinnabar bg-cinnabar/5'
-                      : 'border-scroll-line hover:border-gold/50'
-                  }`}
-                >
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-display text-[15px] text-ink">{getModeLabel(mode)}</span>
-                    {plan.mode === mode && (
-                      <span className="text-[11px] text-cinnabar font-medium">当前</span>
-                    )}
-                  </div>
-                  <p className="text-[12px] text-ink-dim">{getModeDesc(mode)}</p>
-                </button>
-              ))}
+      {/* Reward popup overlay */}
+      {showReward && (
+        <div
+          className={`fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm transition-opacity duration-700 ${
+            rewardFading ? 'opacity-0' : 'opacity-100'
+          }`}
+        >
+          <div className="bg-paper rounded-2xl p-8 max-w-[320px] w-full mx-6 text-center animate-seal-stamp">
+            {/* Medal placeholder */}
+            <div className="w-20 h-20 rounded-full border-2 border-gold/40 flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-paper-deep to-paper">
+              <span className="text-gold font-display text-xl tracking-[0.1em]">{spot.shortName.charAt(0)}</span>
             </div>
-            <button
-              onClick={() => setShowModePicker(false)}
-              className="mt-4 h-12 w-full rounded-full border border-scroll-line text-[15px] text-ink-dim transition-all active:scale-[0.98]"
-            >
-              取消
-            </button>
+            <h3 className="font-display text-[20px] text-ink mb-1">{spot.name} 已勘验</h3>
+            <p className="text-[13px] text-ink-dim mb-2">秘辛已解锁，收录于密档</p>
+            <div className="mt-4 p-3 rounded-lg bg-gold-dim border border-gold/10">
+              <p className="text-[12px] text-gold/70">{spot.teaser}</p>
+            </div>
           </div>
         </div>
       )}

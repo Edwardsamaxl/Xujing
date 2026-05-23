@@ -2,10 +2,9 @@ import { Routes, Route, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
 import Start from './pages/Start'
 import Interest from './pages/Interest'
+import Explore from './pages/Explore'
 import Narrative from './pages/Narrative'
 import Navigate from './pages/Navigate'
-import CheckIn from './pages/CheckIn'
-import Reward from './pages/Reward'
 import Complete from './pages/Complete'
 
 function PageTransition({ children }: { children: React.ReactNode }) {
@@ -47,10 +46,9 @@ function App() {
           <Routes location={location}>
             <Route path="/" element={<PageTransition><Start /></PageTransition>} />
             <Route path="/interest" element={<PageTransition><Interest /></PageTransition>} />
-            <Route path="/narrative" element={<PageTransition><Narrative /></PageTransition>} />
+            <Route path="/explore" element={<PageTransition><Explore /></PageTransition>} />
             <Route path="/navigate" element={<PageTransition><Navigate /></PageTransition>} />
-            <Route path="/check-in" element={<PageTransition><CheckIn /></PageTransition>} />
-            <Route path="/reward" element={<PageTransition><Reward /></PageTransition>} />
+            <Route path="/narrative" element={<PageTransition><Narrative /></PageTransition>} />
             <Route path="/complete" element={<PageTransition><Complete /></PageTransition>} />
           </Routes>
         </div>

@@ -1,38 +1,43 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Narrative from './Narrative'
-import { renderWithRouter, expectLocation, mockFetch, mockLocalStorage } from '../test/utils'
+import { renderWithRouter, expectLocation, mockLocalStorage } from '../test/utils'
 
 describe('Narrative', () => {
   it('redirects to / when no visitorId', async () => {
     mockLocalStorage(null)
-    renderWithRouter(<Narrative />, { initialEntries: ['/narrative'] })
+    renderWithRouter(<Narrative />, { initialEntries: ['/narrative?spotId=spot-clock'] })
 
     await waitFor(() => expectLocation('/'))
   })
 
-  it('loads task and navigates to check-in on button click', async () => {
-    mockLocalStorage('v-1')
-    mockFetch({
-      currentSpotName: '故宫',
-      narrativeTitle: '测试标题',
-      narrativeText: '测试文本',
-      destinationHint: '奉先殿·钟表馆',
-      nextSpotId: 'spot-clock',
-      nextSpotName: '奉先殿',
-      taskIndex: 0,
-      totalTasks: 3,
-    })
+  it('renders narrative content for the spot and interest tag', async () => {
+    mockLocalStorage('v-1', '历史')
+    renderWithRouter(<Narrative />, { initialEntries: ['/narrative?spotId=spot-clock'] })
 
-    renderWithRouter(<Narrative />, { initialEntries: ['/narrative'] })
+    await waitFor(() => expect(screen.getByRole('heading', { name: '钟表馆' })).toBeInTheDocument())
+    expect(screen.getByText('AI 语音讲解中...')).toBeInTheDocument()
+  })
 
-    await waitFor(() => expect(screen.getByText('测试标题')).toBeInTheDocument())
-    expect(screen.getByText('测试文本')).toBeInTheDocument()
-    expect(screen.getByText('奉先殿·钟表馆')).toBeInTheDocument()
+  it('navigates to navigate page on next spot button', async () => {
+    mockLocalStorage('v-1', '历史')
+    renderWithRouter(<Narrative />, { initialEntries: ['/narrative?spotId=spot-clock'] })
 
-    await userEvent.click(screen.getByText('前往奉先殿勘验'))
+    await waitFor(() => expect(screen.getByText('去下一个地点')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('去下一个地点'))
 
-    await waitFor(() => expectLocation('/check-in?spotId=spot-clock'))
+    // From spot-clock, nearest unexplored is spot-yanxi (200m)
+    await waitFor(() => expectLocation('/navigate?spotId=spot-yanxi'))
+  })
+
+  it('opens archive modal when clicking 密档', async () => {
+    mockLocalStorage('v-1', '历史')
+    renderWithRouter(<Narrative />, { initialEntries: ['/narrative?spotId=spot-clock'] })
+
+    await waitFor(() => expect(screen.getByText('密档')).toBeInTheDocument())
+    await userEvent.click(screen.getByText('密档'))
+
+    expect(screen.getByText('秘辛收藏册')).toBeInTheDocument()
   })
 })

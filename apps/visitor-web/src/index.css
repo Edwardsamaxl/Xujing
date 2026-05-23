@@ -71,6 +71,11 @@
       inset 1px 1px 2px rgba(43,41,38,0.15),
       inset -1px -1px 2px rgba(255,255,255,0.4);
   }
+
+  .writing-vertical {
+    writing-mode: vertical-rl;
+    text-orientation: upright;
+  }
 }
 
 /* Page entrance animations */
@@ -115,6 +120,12 @@
 
 .animate-scroll-unfold {
   animation: scrollUnfold 700ms ease-out forwards;
+}
+
+/* Scroll unroll from top (scaleY) */
+@keyframes scrollUnrollTop {
+  0% { transform: scaleY(0); opacity: 0; }
+  100% { transform: scaleY(1); opacity: 1; }
 }
 
 /* Ink bleed text */
@@ -178,6 +189,71 @@
 
 .animate-slide-up {
   animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Slide in from right */
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Footprints walking toward gate */
+@keyframes footWalk {
+  0% {
+    opacity: 0;
+    transform: translateX(calc(-50% + var(--foot-x, 0px))) translateY(0) scale(0.6);
+  }
+  15% {
+    opacity: 0.45;
+  }
+  80% {
+    opacity: 0.35;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(calc(-50% + var(--foot-x, 0px))) translateY(-200px) scale(1);
+  }
+}
+
+/* Light burst from gate opening */
+@keyframes lightBurst {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1.5);
+  }
+}
+
+/* Fade in/out hint text */
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.8; }
+}
+
+/* Full screen white flash transition */
+@keyframes whiteOut {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(2);
+  }
 }
 
 /* Hide scrollbar */

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getVisitorId, clearVisitor } from '../utils/storage'
+import { getVisitorId, clearVisitor, getCompletedSpots } from '../utils/storage'
+import { SPOTS } from '../data/spots'
 
 interface RouteSummary {
   spots: { name: string; id: string }[]
@@ -39,6 +40,8 @@ export default function Complete() {
   const navigate = useNavigate()
   const [summary, setSummary] = useState<RouteSummary | null>(null)
   const [entered, setEntered] = useState(false)
+  const completedSpots = getCompletedSpots()
+  const completedSet = new Set(completedSpots)
 
   useEffect(() => {
     const visitorId = getVisitorId()
@@ -47,11 +50,11 @@ export default function Complete() {
       return
     }
     fetch(`/api/summary?visitorId=${visitorId}`)
-      .then(r => {
+      .then((r) => {
         if (!r.ok) throw new Error('API error')
         return r.json()
       })
-      .then(data => {
+      .then((data) => {
         setSummary(data)
         setTimeout(() => setEntered(true), 50)
       })
@@ -68,6 +71,16 @@ export default function Complete() {
 
   const spots = summary?.spots ?? []
   const rewards = summary?.rewards ?? []
+
+  // Duoboge grid: 3x3 layout with varying sizes
+  const GRID_ITEMS = [
+    { id: 'spot-clock', size: 'large' },
+    { id: 'spot-treasure', size: 'small' },
+    { id: 'spot-ceramic', size: 'small' },
+    { id: 'spot-yanxi', size: 'small' },
+    { id: 'spot-shoukang', size: 'large' },
+    { id: 'spot-cining', size: 'small' },
+  ]
 
   return (
     <div className="flex min-h-screen flex-col bg-paper px-5 pt-10 pb-8">
@@ -89,37 +102,66 @@ export default function Complete() {
           你穿越了 {spots.length} 座宫殿，收集了 {rewards.length} 张密档卡片
         </p>
 
-        {/* Medal wall */}
+        {/* Duobaoge Medal Wall - 3x3 Grid */}
         <div className="mb-8 mt-6">
           <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-4 bg-gold/60 rounded-full" />
-            <span className="text-[13px] text-gold/80 tracking-[0.04em] font-display">勋章墙</span>
+            <span className="text-[13px] text-gold/80 tracking-[0.04em] font-display">多宝格藏宝阁</span>
           </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
-            {spots.map((spot, i) => {
-              const isUnlocked = i < rewards.length
-              return (
-                <div key={spot.id} className="w-[130px] flex-shrink-0">
-                  {isUnlocked ? (
-                    <div className="card-elevated rounded-lg overflow-hidden">
-                      <div className="bg-gradient-to-b from-paper-deep to-paper h-[55%] flex items-center justify-center">
-                        <span className="text-[16px] font-display text-ink">{spot.name}</span>
-                      </div>
-                      <div className="h-[45%] p-2 flex flex-col justify-center items-center">
-                        <p className="text-[10px] text-gold/60 mt-0.5 tracking-[0.04em]">已勘验</p>
-                        <div className="mt-2 w-8 h-8 rounded-full border border-cinnabar/40 flex items-center justify-center rotate-[-12deg]">
-                          <span className="text-cinnabar/70 font-display text-[8px]">勘</span>
+
+          {/* Wooden texture background placeholder */}
+          <div className="rounded-xl border border-scroll-line/50 bg-paper-deep p-4"
+            style={{ background: 'linear-gradient(135deg, #EFEBE1 0%, #E8E4DA 100%)' }}
+          >
+            <div className="grid grid-cols-3 gap-2">
+              {GRID_ITEMS.map((item) => {
+                const isUnlocked = completedSet.has(item.id)
+                const spot = SPOTS[item.id]
+                if (!spot) return null
+
+                if (item.size === 'large') {
+                  return (
+                    <div key={item.id} className="col-span-1 row-span-2">
+                      {isUnlocked ? (
+                        <div className="h-full rounded-lg border border-gold/30 bg-paper flex flex-col items-center justify-center p-3 shadow-sm"
+                          style={{ minHeight: '140px' }}
+                        >
+                          {/* Medal placeholder */}
+                          <div className="w-12 h-12 rounded-full border-2 border-gold/40 flex items-center justify-center mb-2 bg-gradient-to-br from-paper-deep to-paper">
+                            <span className="text-gold font-display text-sm">{spot.shortName.charAt(0)}</span>
+                          </div>
+                          <p className="text-[12px] font-display text-ink text-center">{spot.name}</p>
+                          <div className="mt-2 w-6 h-6 rounded-full border border-cinnabar/40 flex items-center justify-center rotate-[-12deg]">
+                            <span className="text-cinnabar/70 font-display text-[7px]">勘</span>
+                          </div>
                         </div>
+                      ) : (
+                        <div className="h-full rounded-lg border border-dashed border-scroll-line/40 bg-paper/50 flex flex-col items-center justify-center" style={{ minHeight: '140px' }}>
+                          <span className="text-ink-faint/30 text-xl">?</span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+
+                return (
+                  <div key={item.id} className="col-span-1">
+                    {isUnlocked ? (
+                      <div className="rounded-lg border border-gold/20 bg-paper flex flex-col items-center justify-center p-2 shadow-sm" style={{ minHeight: '66px' }}>
+                        <div className="w-8 h-8 rounded-full border border-gold/30 flex items-center justify-center mb-1 bg-gradient-to-br from-paper-deep to-paper">
+                          <span className="text-gold/80 font-display text-[10px]">{spot.shortName.charAt(0)}</span>
+                        </div>
+                        <p className="text-[10px] text-ink text-center leading-tight">{spot.name}</p>
                       </div>
-                    </div>
-                  ) : (
-                    <div className="bg-paper-deep border border-dashed border-scroll-line/40 rounded-lg h-full flex flex-col items-center justify-center py-6">
-                      <span className="text-ink-faint/30 text-2xl">?</span>
-                    </div>
-                  )}
-                </div>
-              )
-            })}
+                    ) : (
+                      <div className="rounded-lg border border-dashed border-scroll-line/40 bg-paper/50 flex items-center justify-center" style={{ minHeight: '66px' }}>
+                        <span className="text-ink-faint/20 text-sm">?</span>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
 
@@ -132,7 +174,7 @@ export default function Complete() {
           <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[13px] text-ink-dim">
             {spots.map((spot, i) => (
               <span key={spot.id} className="flex items-center">
-                <span className={`${i < rewards.length ? 'text-ink' : ''}`}>{spot.name}</span>
+                <span className={`${completedSet.has(spot.id) ? 'text-ink font-medium' : ''}`}>{spot.name}</span>
                 {i < spots.length - 1 && (
                   <svg className="mx-1 h-3 w-3 text-ink-faint/30" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -147,7 +189,7 @@ export default function Complete() {
         <div className="card-elevated rounded-xl p-5 mt-6 mb-6">
           <p className="text-gold font-medium text-[15px] mb-4">为你推荐的故宫文创</p>
           <div className="flex gap-3 overflow-x-auto no-scrollbar pb-2 -mx-1 px-1">
-            {SOUVENIRS.map(item => (
+            {SOUVENIRS.map((item) => (
               <div key={item.name} className="w-[120px] flex-shrink-0">
                 <div className="aspect-square bg-paper-deep rounded-lg mb-2" />
                 <p className="text-[12px] text-ink font-medium truncate">{item.name}</p>
@@ -162,7 +204,7 @@ export default function Complete() {
 
         {/* Route switch */}
         <div className="flex gap-2 mb-6">
-          {ROUTES.map(route => (
+          {ROUTES.map((route) => (
             <button
               key={route.id}
               className="flex-1 h-10 px-2 rounded-full border border-scroll-line text-[13px] text-ink-dim hover:border-cinnabar hover:text-cinnabar transition-all"

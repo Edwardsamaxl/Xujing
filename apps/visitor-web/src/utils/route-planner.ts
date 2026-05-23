@@ -1,20 +1,12 @@
 import { SPOT_IDS, SPOT_GRAPH, type SpotEdge } from '../data/spots'
-import { getCompletedSpots, getRouteMode, type RouteMode } from './storage'
+import { getCompletedSpots } from './storage'
 
-export interface RoutePlan {
-  currentSpotId: string | null
-  nextSpotId: string | null
-  remainingSpotIds: string[]
-  totalRemainingDistance: number
-  totalRemainingTime: number
-  nextEdge: SpotEdge | null
-  completedCount: number
-  totalCount: number
-  mode: RouteMode
+export interface RouteInfo {
+  targetSpotId: string
+  distance: number
+  walkTime: number
+  isNearby: boolean
 }
-
-const DEFAULT_START = 'spot-clock'
-const EXPRESS_SPOTS = ['spot-clock', 'spot-treasure', 'spot-yanxi']
 
 const ENTRY_EDGES: Record<string, SpotEdge> = {
   'spot-clock': { distance: 400, walkTime: 6 },
@@ -25,127 +17,59 @@ const ENTRY_EDGES: Record<string, SpotEdge> = {
   'spot-cining': { distance: 300, walkTime: 5 },
 }
 
-const MODE_LABEL: Record<RouteMode, string> = {
-  archaeology: '深度考古线',
-  full: '全域打卡线',
-  express: '限时速览线',
+export function getRouteTo(targetSpotId: string): RouteInfo {
+  const completed = getCompletedSpots()
+  const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
+
+  const edge = lastCompleted
+    ? SPOT_GRAPH[lastCompleted]?.[targetSpotId]
+    : ENTRY_EDGES[targetSpotId]
+
+  const distance = edge?.distance ?? 500
+  const walkTime = edge?.walkTime ?? 8
+
+  return {
+    targetSpotId,
+    distance,
+    walkTime,
+    isNearby: distance < 100,
+  }
 }
 
-const MODE_DESC: Record<RouteMode, string> = {
-  archaeology: '6个点位 · 最完整的宫廷探索',
-  full: '6个点位 · 最优路径覆盖全部',
-  express: '3个精选 · 快速核心体验',
+export function getRemainingSpots(): string[] {
+  const completed = getCompletedSpots()
+  const set = new Set(completed)
+  return SPOT_IDS.filter((id) => !set.has(id))
 }
 
-export function getModeLabel(mode: RouteMode): string {
-  return MODE_LABEL[mode]
+export function getRandomUnexploredSpot(): string | null {
+  const remaining = getRemainingSpots()
+  if (remaining.length === 0) return null
+  return remaining[Math.floor(Math.random() * remaining.length)]
 }
 
-export function getModeDesc(mode: RouteMode): string {
-  return MODE_DESC[mode]
+export function getRecommendedSpot(): string | null {
+  const remaining = getRemainingSpots()
+  if (remaining.length === 0) return null
+  // 弱推荐：简单 hash 推荐一个
+  const hour = new Date().getHours()
+  const idx = (hour + remaining.length) % remaining.length
+  return remaining[idx]
 }
 
-function findNearest(from: string, candidates: string[]): string {
-  let nearest = candidates[0]
+export function getNextRecommendedSpot(afterSpotId: string): string | null {
+  const remaining = getRemainingSpots().filter((id) => id !== afterSpotId)
+  if (remaining.length === 0) return null
+
+  // 找距离最近的
+  let nearest = remaining[0]
   let minDist = Infinity
-  for (const c of candidates) {
-    const d = SPOT_GRAPH[from]?.[c]?.distance ?? Infinity
-    if (d < minDist) {
-      minDist = d
-      nearest = c
+  for (const id of remaining) {
+    const edge = SPOT_GRAPH[afterSpotId]?.[id]
+    if (edge && edge.distance < minDist) {
+      minDist = edge.distance
+      nearest = id
     }
   }
   return nearest
-}
-
-function buildGreedyPath(start: string | null, spots: string[]): string[] {
-  const remaining = [...spots]
-  const path: string[] = []
-  let current = start
-
-  while (remaining.length > 0) {
-    let next: string
-    if (current === null) {
-      next = remaining[0]
-    } else {
-      next = findNearest(current, remaining)
-    }
-    path.push(next)
-    remaining.splice(remaining.indexOf(next), 1)
-    current = next
-  }
-
-  return path
-}
-
-export function planRoute(): RoutePlan {
-  const mode = getRouteMode()
-  const completed = getCompletedSpots()
-  const completedSet = new Set(completed)
-
-  let allSpots: string[]
-  if (mode === 'express') {
-    allSpots = [...EXPRESS_SPOTS]
-  } else {
-    allSpots = [...SPOT_IDS]
-  }
-
-  const remaining = allSpots.filter((id) => !completedSet.has(id))
-  const currentSpotId = completed.length > 0 ? completed[completed.length - 1] : null
-
-  let orderedRemaining: string[]
-  if (remaining.length === 0) {
-    orderedRemaining = []
-  } else if (currentSpotId === null) {
-    const hasDefaultStart = remaining.includes(DEFAULT_START)
-    if (hasDefaultStart) {
-      orderedRemaining = [DEFAULT_START, ...buildGreedyPath(DEFAULT_START, remaining.filter((id) => id !== DEFAULT_START))]
-    } else {
-      orderedRemaining = buildGreedyPath(null, remaining)
-    }
-  } else {
-    orderedRemaining = buildGreedyPath(currentSpotId, remaining)
-  }
-
-  const nextSpotId = orderedRemaining[0] ?? null
-  const nextEdge =
-    currentSpotId && nextSpotId
-      ? SPOT_GRAPH[currentSpotId]?.[nextSpotId] ?? null
-      : nextSpotId
-        ? ENTRY_EDGES[nextSpotId] ?? { distance: 100, walkTime: 2 }
-        : null
-
-  let totalRemainingDistance = 0
-  let totalRemainingTime = 0
-  for (let i = 0; i < orderedRemaining.length; i++) {
-    const from = i === 0 ? currentSpotId : orderedRemaining[i - 1]
-    const to = orderedRemaining[i]
-    let edge: SpotEdge | undefined
-    if (from) {
-      edge = SPOT_GRAPH[from]?.[to]
-    } else if (to) {
-      edge = ENTRY_EDGES[to]
-    }
-    if (edge) {
-      totalRemainingDistance += edge.distance
-      totalRemainingTime += edge.walkTime
-    }
-  }
-
-  return {
-    currentSpotId,
-    nextSpotId,
-    remainingSpotIds: orderedRemaining,
-    totalRemainingDistance,
-    totalRemainingTime,
-    nextEdge,
-    completedCount: completed.length,
-    totalCount: allSpots.length,
-    mode,
-  }
-}
-
-export function getRouteSpots(mode: RouteMode): string[] {
-  if (mode === 'express') return [...EXPRESS_SPOTS]
-  return [...SPOT_IDS]
 }
