@@ -494,8 +494,7 @@
   transform-origin: top center;
   animation:
     startLineGrow 300ms steps(8, end) 0.5s forwards,
-    startLineHold 720ms steps(1, end) 0.82s forwards,
-    startLineExit 120ms steps(1, end) 1.48s forwards;
+    startLineFade 520ms ease-out 0.82s forwards;
 }
 
 @keyframes startLineGrow {
@@ -503,12 +502,8 @@
   to { height: 100vh; }
 }
 
-@keyframes startLineHold {
+@keyframes startLineFade {
   from { opacity: 1; }
-  to { opacity: 1; }
-}
-
-@keyframes startLineExit {
   to { opacity: 0; }
 }
 
