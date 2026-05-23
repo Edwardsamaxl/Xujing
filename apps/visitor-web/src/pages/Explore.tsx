@@ -3,20 +3,19 @@ import { useEffect, useState } from 'react'
 import { SPOTS, getAllSpots, getCrowdLevel } from '../data/spots'
 import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag } from '../utils/storage'
 import { getRemainingSpots, getRecommendedSpot, getRandomUnexploredSpot } from '../utils/route-planner'
+import { Button } from '../components/Button'
 
-const CARD_ART: Record<
-  string,
-  {
-    eyebrow: string
-    secret: string
-    detail: string
-    archivalNote: string
-    stamp: string
-    stampSub: string
-    accent: string
-    backgrounds: Record<string, string>
-  }
-> = {
+interface CardArt {
+  eyebrow: string
+  secret: string
+  detail: string
+  archivalNote: string
+  stamp: string
+  stampSub: string
+  accent: string
+}
+
+const CARD_ART: Record<string, CardArt> = {
   'spot-clock': {
     eyebrow: '铜壶滴漏 · 自鸣钟',
     secret: '齿轮、滴漏与远洋贡品，把宫廷时间校准在同一声钟响里。',
@@ -25,14 +24,6 @@ const CARD_ART: Record<
     stamp: '时',
     stampSub: '钟表',
     accent: '#8C5A20',
-    backgrounds: {
-      '历史': '/assets/explore/history/history-card.png',
-      '建筑': '/assets/explore/architecture/clock.png',
-      '人物': '/assets/explore/people/clock.png',
-      '亲子': '/assets/explore/kids/clock.png',
-      '悬疑': '/assets/explore/suspense/clock.png',
-      '工艺': '/assets/explore/technique/clock.png',
-    },
   },
   'spot-treasure': {
     eyebrow: '金瓯永固 · 田黄三连章',
@@ -42,14 +33,6 @@ const CARD_ART: Record<
     stamp: '宝',
     stampSub: '珍藏',
     accent: '#9F6D16',
-    backgrounds: {
-      '历史': '/assets/explore/history/history-card.png',
-      '建筑': '/assets/explore/architecture/treasure.png',
-      '人物': '/assets/explore/people/treasure.png',
-      '亲子': '/assets/explore/kids/treasure.png',
-      '悬疑': '/assets/explore/suspense/treasure.png',
-      '工艺': '/assets/explore/technique/treasure.png',
-    },
   },
   'spot-ceramic': {
     eyebrow: '八千年窑火 · 青花粉彩',
@@ -59,14 +42,6 @@ const CARD_ART: Record<
     stamp: '瓷',
     stampSub: '窑火',
     accent: '#476F72',
-    backgrounds: {
-      '历史': '/assets/explore/history/history-card.png',
-      '建筑': '/assets/explore/architecture/ceramic.png',
-      '人物': '/assets/explore/people/ceramic.png',
-      '亲子': '/assets/explore/kids/ceramic.png',
-      '悬疑': '/assets/explore/suspense/ceramic.png',
-      '工艺': '/assets/explore/technique/ceramic.png',
-    },
   },
   'spot-yanxi': {
     eyebrow: '灵沼轩 · 水晶宫遗梦',
@@ -76,14 +51,6 @@ const CARD_ART: Record<
     stamp: '沼',
     stampSub: '延禧',
     accent: '#54677D',
-    backgrounds: {
-      '历史': '/assets/explore/history/history-card.png',
-      '建筑': '/assets/explore/architecture/yanxi.png',
-      '人物': '/assets/explore/people/yanxi.png',
-      '亲子': '/assets/explore/kids/yanxi.png',
-      '悬疑': '/assets/explore/suspense/yanxi.png',
-      '工艺': '/assets/explore/technique/yanxi.png',
-    },
   },
   'spot-shoukang': {
     eyebrow: '崇庆皇太后 · 颐养之所',
@@ -93,14 +60,6 @@ const CARD_ART: Record<
     stamp: '寿',
     stampSub: '颐养',
     accent: '#934C36',
-    backgrounds: {
-      '历史': '/assets/explore/history/history-card.png',
-      '建筑': '/assets/explore/architecture/shoukang.png',
-      '人物': '/assets/explore/people/shoukang.png',
-      '亲子': '/assets/explore/kids/shoukang.png',
-      '悬疑': '/assets/explore/suspense/shoukang.png',
-      '工艺': '/assets/explore/technique/shoukang.png',
-    },
   },
   'spot-cining': {
     eyebrow: '太后正宫 · 雕塑馆',
@@ -110,14 +69,6 @@ const CARD_ART: Record<
     stamp: '宁',
     stampSub: '慈宁',
     accent: '#66714B',
-    backgrounds: {
-      '历史': '/assets/explore/history/history-card.png',
-      '建筑': '/assets/explore/architecture/cining.png',
-      '人物': '/assets/explore/people/cining.png',
-      '亲子': '/assets/explore/kids/cining.png',
-      '悬疑': '/assets/explore/suspense/cining.png',
-      '工艺': '/assets/explore/technique/cining.png',
-    },
   },
 }
 
@@ -129,6 +80,8 @@ const INTEREST_CARD_BACKGROUNDS: Record<string, string> = {
   悬疑: '/assets/explore/mystery/mystery-card.png',
   工艺: '/assets/explore/craft/craft-card.png',
 }
+
+const FALLBACK_BG = '/assets/explore/history/history-card.png'
 
 export default function Explore() {
   const navigate = useNavigate()
@@ -223,8 +176,15 @@ export default function Explore() {
                 {/* Background painting — scaled to crop white border */}
                 <div className="absolute inset-0 overflow-hidden">
                   <img
-                    src={INTEREST_CARD_BACKGROUNDS[interestTag] || art.backgrounds[interestTag] || art.backgrounds['历史']}
+                    src={INTEREST_CARD_BACKGROUNDS[interestTag] || FALLBACK_BG}
                     alt=""
+                    loading="lazy"
+                    decoding="async"
+                    onError={(e) => {
+                      const img = e.currentTarget
+                      if (img.src.endsWith(FALLBACK_BG)) return
+                      img.src = FALLBACK_BG
+                    }}
                     className="h-full w-full object-cover object-right"
                     style={{ transform: 'scale(1.06)', opacity: status === 'completed' ? 0.5 : 0.9 }}
                   />
@@ -321,21 +281,15 @@ export default function Explore() {
 
         {/* Random explore */}
         {remaining.length > 0 && (
-          <button
-            onClick={handleRandom}
-            className="h-12 w-full rounded-full border border-gold text-gold bg-transparent text-[15px] font-medium tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] hover:bg-gold/5"
-          >
+          <Button variant="gold-outline" fullWidth onClick={handleRandom}>
             随机探索
-          </button>
+          </Button>
         )}
 
         {remaining.length === 0 && (
-          <button
-            onClick={() => navigate('/complete')}
-            className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98]"
-          >
+          <Button variant="primary" fullWidth onClick={() => navigate('/complete')}>
             查看结案卷宗
-          </button>
+          </Button>
         )}
       </div>
     </div>

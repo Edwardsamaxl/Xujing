@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { SPOTS, getCrowdLevel } from '../data/spots'
 import { addCompletedSpot, unlockNarrative, setCurrentTarget, getCompletedSpots } from '../utils/storage'
 import { getRouteTo } from '../utils/route-planner'
+import { Button } from '../components/Button'
 
 /* ---------- 故宫简图 —— 基于真实布局（viewBox 0 0 400 320） ---------- */
 
@@ -96,6 +97,14 @@ export default function Navigate() {
     return () => clearTimeout(t)
   }, [])
 
+  // 注意：所有 hook 必须在条件 return 之前调用，否则违反 React Hooks 规则
+  const completed = getCompletedSpots()
+  const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
+  const routePath = useMemo(
+    () => findRoutePath(lastCompleted, spotId ?? ''),
+    [lastCompleted, spotId],
+  )
+
   const handleDismissReward = () => {
     setRewardFading(true)
     setTimeout(() => {
@@ -121,10 +130,6 @@ export default function Navigate() {
   const route = getRouteTo(spotId)
   const crowd = getCrowdLevel(spotId)
   const isColdSpot = crowd === 'smooth'
-
-  const completed = getCompletedSpots()
-  const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
-  const routePath = useMemo(() => findRoutePath(lastCompleted, spotId), [lastCompleted, spotId])
 
   const handleArrived = () => {
     // 1. 标记已勘验
@@ -287,8 +292,8 @@ export default function Navigate() {
         <div className="card-elevated rounded-xl p-5 mb-4">
           {/* Nearby hint */}
           {route.isNearby && (
-            <div className="mb-4 p-3 rounded-lg bg-emerald-50 border border-emerald-200">
-              <p className="text-[13px] text-emerald-700 text-center">
+            <div className="mb-4 p-3 rounded-lg bg-gold-dim border border-gold/30">
+              <p className="text-[13px] text-gold/90 text-center tracking-[0.04em]">
                 你似乎已在此地附近
               </p>
             </div>
@@ -337,20 +342,12 @@ export default function Navigate() {
 
         {/* Bottom buttons */}
         <div className="mt-auto space-y-3">
-          <button
-            onClick={handleArrived}
-            disabled={showReward}
-            className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] disabled:opacity-50 hover:shadow-[0_4px_16px_rgba(163,38,38,0.15)]"
-          >
+          <Button variant="primary" fullWidth onClick={handleArrived} disabled={showReward}>
             {showReward ? '勘验完成 · 解锁中...' : '我已到达'}
-          </button>
-          <button
-            onClick={handleChangeTarget}
-            disabled={showReward}
-            className="h-12 w-full rounded-full border border-cinnabar text-cinnabar bg-transparent text-[15px] font-medium tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] disabled:opacity-50"
-          >
+          </Button>
+          <Button variant="secondary" fullWidth onClick={handleChangeTarget} disabled={showReward}>
             更换目标
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -361,7 +358,7 @@ export default function Navigate() {
             rewardFading ? 'opacity-0' : 'opacity-100'
           }`}
         >
-          <div className="bg-white rounded-2xl p-8 max-w-[320px] w-full mx-6 text-center animate-seal-stamp">
+          <div className="card-elevated bg-paper rounded-2xl p-8 max-w-[320px] w-full mx-6 text-center animate-seal-stamp">
             {/* Medal image */}
             <div className="w-52 h-52 mx-auto mb-5">
               <img
@@ -375,13 +372,14 @@ export default function Navigate() {
             <div className="mt-4 p-3 rounded-lg bg-gold-dim border border-gold/10 mb-5">
               <p className="text-[12px] text-gold/70">{spot.teaser}</p>
             </div>
-            <button
+            <Button
+              variant="primary"
+              fullWidth
               onClick={handleDismissReward}
               disabled={rewardFading}
-              className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.98] disabled:opacity-50"
             >
               收好勋章
-            </button>
+            </Button>
           </div>
         </div>
       )}

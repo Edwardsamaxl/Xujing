@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { setVisitorId, setInterestTag } from '../utils/storage'
+import { Button } from '../components/Button'
 
 interface StyleCard {
   id: string
@@ -248,14 +249,16 @@ export default function Interest() {
           </div>
         )}
 
-        <button
+        <Button
+          variant="primary"
+          fullWidth
           onClick={handleStart}
           disabled={!selected}
-          className="mt-10 h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.06em] transition-all duration-200 ease-out active:scale-[0.96] disabled:bg-ink-faint/20 disabled:text-ink-faint/40 disabled:active:scale-100 hover:shadow-[0_4px_16px_rgba(163,38,38,0.15)]"
+          className="mt-10"
           style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
         >
           进入秘辛地图
-        </button>
+        </Button>
       </div>
     </div>
   )

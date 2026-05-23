@@ -57,6 +57,36 @@ export function getRecommendedSpot(): string | null {
   return remaining[idx]
 }
 
+/**
+ * 累计「入口 → spot1 → spot2 → ...」的真实步行距离与时间。
+ * 用 ENTRY_EDGES + SPOT_GRAPH 真实邻接数据，替代 Complete 页之前的估算公式。
+ */
+export function getTotalRouteStats(completedInOrder: string[]): {
+  distance: number
+  walkTime: number
+} {
+  if (completedInOrder.length === 0) return { distance: 0, walkTime: 0 }
+  let distance = 0
+  let walkTime = 0
+
+  const first = completedInOrder[0]
+  const entry = ENTRY_EDGES[first]
+  if (entry) {
+    distance += entry.distance
+    walkTime += entry.walkTime
+  }
+
+  for (let i = 1; i < completedInOrder.length; i++) {
+    const edge = SPOT_GRAPH[completedInOrder[i - 1]]?.[completedInOrder[i]]
+    if (edge) {
+      distance += edge.distance
+      walkTime += edge.walkTime
+    }
+  }
+
+  return { distance, walkTime }
+}
+
 export function getNextRecommendedSpot(afterSpotId: string): string | null {
   const remaining = getRemainingSpots().filter((id) => id !== afterSpotId)
   if (remaining.length === 0) return null
