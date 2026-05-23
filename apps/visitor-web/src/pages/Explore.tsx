@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
-import { useEffect, useState } from 'react'
-import { SPOTS, getAllSpots, getCrowdLevel } from '../data/spots'
+import { useEffect, useMemo, useState } from 'react'
+import { SPOTS, getAllSpots, getCrowdLevel, getEdge, getSpotById } from '../data/spots'
 import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag, getVisitorId } from '../utils/storage'
 import { getRemainingSpots, getRandomUnexploredSpot } from '../utils/route-planner'
 import { fetchRecommendation, type RecommendResult } from '../api/recommend'
@@ -109,6 +109,41 @@ export default function Explore() {
   const completedSet = new Set(completed)
   const remaining = getRemainingSpots()
 
+  const effectiveRecommendation = useMemo(() => {
+    if (!recommendation) return null
+    if (!completedSet.has(recommendation.spotId)) return recommendation
+
+    const localRemaining = getRemainingSpots()
+    if (localRemaining.length === 0) return null
+
+    const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
+    let bestId = localRemaining[0]
+    let minWalkTime = Infinity
+
+    for (const id of localRemaining) {
+      const edge = lastCompleted ? getEdge(lastCompleted, id) : undefined
+      const walkTime = edge?.walkTime ?? 10
+      if (walkTime < minWalkTime) {
+        minWalkTime = walkTime
+        bestId = id
+      }
+    }
+
+    const spot = getSpotById(bestId)
+    if (!spot) return null
+
+    const edge = lastCompleted ? getEdge(lastCompleted, bestId) : undefined
+
+    return {
+      spotId: bestId,
+      spotName: spot.name,
+      reason: `此刻${spot.name}人少路近，可优先前往探索。`,
+      distance: edge?.distance ?? 500,
+      walkTime: edge?.walkTime ?? 8,
+      isNearby: (edge?.distance ?? 500) < 150,
+    } as RecommendResult
+  }, [recommendation, completed, completedSet])
+
   const handleSelectSpot = (spotId: string) => {
     if (completedSet.has(spotId)) return
     setCurrentTarget(spotId)
@@ -148,16 +183,16 @@ export default function Explore() {
         </div>
 
         {/* Weak recommendation */}
-        {recommendation && remaining.length > 0 && !completedSet.has(recommendation.spotId) && (
+        {effectiveRecommendation && remaining.length > 0 && (
           <div className="mb-4 p-3 rounded-lg bg-paper-deep border border-gold/20 flex items-start gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse flex-shrink-0 mt-1.5" />
             <div className="flex-1 min-w-0">
               <p className="text-[12px] text-ink-dim leading-[1.6]">
-                {recommendation.reason}
+                {effectiveRecommendation.reason}
               </p>
               <div className="mt-2 flex gap-2">
                 <button
-                  onClick={() => handleSelectSpot(recommendation.spotId)}
+                  onClick={() => handleSelectSpot(effectiveRecommendation.spotId)}
                   className="text-[11px] px-2.5 h-10 rounded-full bg-gold/10 text-gold font-medium transition-colors hover:bg-gold/20 flex items-center"
                 >
                   去看看
