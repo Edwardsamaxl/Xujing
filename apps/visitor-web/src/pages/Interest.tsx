@@ -175,10 +175,12 @@ export default function Interest() {
                   <div className="absolute inset-y-0 left-0 w-[64%] bg-gradient-to-r from-[#f5f0e6] via-[#f5f0e6] to-transparent" />
 
                   {/* Left vertical bookmark */}
-                  <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center writing-vertical shadow-sm">
-                    <span className="font-display text-[13px] tracking-[0.25em] text-[#f4ead8]">
-                      {art.stampSub}
-                    </span>
+                  <div className="absolute left-[2.8%] top-[7%] bottom-[7%] w-[9.5%] bg-[#8B2E2E] rounded-sm flex flex-col items-center justify-center shadow-sm">
+                    {art.stampSub.split('').map((char, i) => (
+                      <span key={i} className="font-display text-[13px] text-[#f4ead8] leading-tight py-[1px]">
+                        {char}
+                      </span>
+                    ))}
                   </div>
 
                   {/* Main text content */}
