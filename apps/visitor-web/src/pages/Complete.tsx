@@ -7,7 +7,10 @@ import {
   getCompletedSpots,
   getUnlockedNarratives,
   isNarrativeUnlocked,
+  getCheckInTimes,
 } from '../utils/storage'
+import { getTotalRouteStats } from '../utils/route-planner'
+import { Button } from '../components/Button'
 
 // ---------- Types ----------
 
@@ -74,8 +77,24 @@ export default function Complete() {
   const unlockedNarratives = getUnlockedNarratives()
   const spotCount = completedSpots.length
   const rewardCount = unlockedNarratives.length
-  const distance = spotCount > 1 ? (spotCount - 1) * 320 : spotCount * 160
-  const time = spotCount * 20 + Math.max(0, spotCount - 1) * 5
+
+  // 真实步行距离：用 ENTRY_EDGES + SPOT_GRAPH 累加，按用户实际访问顺序
+  const { distance: realDistance, walkTime: realWalkTime } =
+    getTotalRouteStats(completedSpots)
+
+  // 真实总耗时：取首次 → 末次打卡时间戳的真实间隔（分钟）。如果不足两次或缺少时间戳，
+  // 退回纯走路时间 + 每个点位 20 分钟参观估算。
+  const checkInTimes = getCheckInTimes()
+  const timestamps = completedSpots
+    .map((id) => checkInTimes[id])
+    .filter((t): t is number => typeof t === 'number')
+  const realTotalMin =
+    timestamps.length >= 2
+      ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
+      : realWalkTime + spotCount * 20
+
+  const distance = realDistance
+  const time = realTotalMin
 
   const spotCountAnim = useCountUp(spotCount, 800, 300)
   const rewardCountAnim = useCountUp(rewardCount, 800, 400)
@@ -283,48 +302,53 @@ export default function Complete() {
               路线回顾
             </span>
           </div>
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[13px] text-ink-light">
-            {GRID_ITEMS.map((item, i) => {
-              const done = isNarrativeUnlocked(item.id)
-              return (
-                <span key={item.id} className="flex items-center">
-                  <span className={done ? 'text-ink font-medium' : ''}>{item.label}</span>
-                  {i < GRID_ITEMS.length - 1 && (
-                    <svg
-                      className="mx-1 h-3 w-3 text-ink-faint/30"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M9 5l7 7-7 7"
-                      />
-                    </svg>
-                  )}
-                </span>
-              )
-            })}
-          </div>
+          {completedSpots.length === 0 ? (
+            <p className="text-[13px] text-ink-faint">尚未勘验任何点位</p>
+          ) : (
+            <>
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[13px] text-ink-light">
+                {completedSpots.map((spotId, i) => {
+                  const item = GRID_ITEMS.find((g) => g.id === spotId)
+                  if (!item) return null
+                  return (
+                    <span key={spotId} className="flex items-center">
+                      <span className="text-ink font-medium">{item.label}</span>
+                      {i < completedSpots.length - 1 && (
+                        <svg
+                          className="mx-1 h-3 w-3 text-gold/50"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth={2}
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M9 5l7 7-7 7"
+                          />
+                        </svg>
+                      )}
+                    </span>
+                  )
+                })}
+              </div>
+              {completedSpots.length < GRID_ITEMS.length && (
+                <p className="mt-3 text-[12px] text-ink-faint">
+                  剩余 {GRID_ITEMS.length - completedSpots.length} 处尚未勘验
+                </p>
+              )}
+            </>
+          )}
         </div>
 
         {/* ===== Action Buttons ===== */}
         <div className="space-y-3">
-          <button
-            onClick={() => setShowShare(true)}
-            className="h-12 w-full rounded-full bg-cinnabar text-[16px] font-medium text-paper tracking-[0.04em] transition-transform duration-150 ease-out active:scale-[0.96]"
-          >
+          <Button variant="primary" fullWidth onClick={() => setShowShare(true)}>
             生成纪念卡
-          </button>
-
-          <button
-            onClick={handleRestart}
-            className="h-12 w-full rounded-full border border-cinnabar bg-transparent text-[16px] font-medium text-cinnabar tracking-[0.04em] transition-transform duration-150 ease-out active:scale-[0.96]"
-          >
+          </Button>
+          <Button variant="secondary" fullWidth onClick={handleRestart}>
             再探一次
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -428,19 +452,17 @@ export default function Complete() {
 
             {/* Modal buttons */}
             <div className="mt-4 space-y-2.5">
-              <button
+              <Button
+                variant="primary"
+                fullWidth
                 onClick={handleSavePoster}
                 disabled={saving}
-                className="h-12 w-full rounded-full bg-cinnabar text-[16px] font-medium text-paper tracking-wide transition-transform active:scale-[0.96] disabled:opacity-50"
               >
                 {saving ? '生成中...' : '保存到相册'}
-              </button>
-              <button
-                onClick={() => setShowShare(false)}
-                className="h-12 w-full rounded-full border border-cinnabar bg-transparent text-[16px] font-medium text-cinnabar tracking-wide transition-transform active:scale-[0.96]"
-              >
+              </Button>
+              <Button variant="secondary" fullWidth onClick={() => setShowShare(false)}>
                 关闭
-              </button>
+              </Button>
             </div>
           </div>
         </div>

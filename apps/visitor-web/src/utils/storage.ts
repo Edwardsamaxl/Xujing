@@ -3,6 +3,8 @@ const COMPLETED_KEY = 'xujing_completed_spots'
 const INTEREST_KEY = 'xujing_interest_tags'
 const CURRENT_TARGET_KEY = 'xujing_current_target'
 const UNLOCKED_NARRATIVES_KEY = 'xujing_unlocked_narratives'
+const CHECK_IN_TIMES_KEY = 'xujing_check_in_times'
+const VOICE_PREF_KEY = 'xujing_voice_guide_pref'
 
 export function getVisitorId(): string | null {
   return localStorage.getItem(VISITOR_KEY)
@@ -26,6 +28,21 @@ export function addCompletedSpot(spotId: string) {
   if (!spots.includes(spotId)) {
     spots.push(spotId)
     localStorage.setItem(COMPLETED_KEY, JSON.stringify(spots))
+  }
+  const times = getCheckInTimes()
+  if (!times[spotId]) {
+    times[spotId] = Date.now()
+    localStorage.setItem(CHECK_IN_TIMES_KEY, JSON.stringify(times))
+  }
+}
+
+export function getCheckInTimes(): Record<string, number> {
+  const raw = localStorage.getItem(CHECK_IN_TIMES_KEY)
+  try {
+    const parsed = raw ? JSON.parse(raw) : {}
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
   }
 }
 
@@ -83,4 +100,6 @@ export function clearVisitor() {
   localStorage.removeItem(INTEREST_KEY)
   localStorage.removeItem(CURRENT_TARGET_KEY)
   localStorage.removeItem(UNLOCKED_NARRATIVES_KEY)
+  localStorage.removeItem(CHECK_IN_TIMES_KEY)
+  localStorage.removeItem(VOICE_PREF_KEY)
 }

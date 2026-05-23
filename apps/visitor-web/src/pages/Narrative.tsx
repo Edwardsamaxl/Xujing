@@ -9,6 +9,7 @@ import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
 import { useVoicePreference } from '../hooks/useVoicePreference'
 import { askQuestion } from '../api/qa'
+import { Button } from '../components/Button'
 
 const DEFAULT_HINTS = [
   '问我关于这里的秘辛...',
@@ -40,6 +41,7 @@ export default function Narrative() {
   const [typedText, setTypedText] = useState('')
   const [narrativeData, setNarrativeData] = useState<NarrativeData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [textInput, setTextInput] = useState('')
 
   const interestTag = getInterestTag()
 
@@ -141,16 +143,20 @@ export default function Narrative() {
     return () => clearInterval(interval)
   }, [narrativeData, template])
 
+  // 当前真实展示的剧情文本（优先 AI 生成，回退到本地模板）
+  const displayedNarrativeText =
+    narrativeData?.narrativeText || template?.baseContent || ''
+
   useEffect(() => {
-    if (!template || !tts.supported) return
-    if (typedText !== template.baseContent) return
+    if (!tts.supported || !displayedNarrativeText) return
     if (voicePref.pref === 'off') return
-    const key = `${spotId}::${activeTag}`
+    if (typedText !== displayedNarrativeText) return
+    const key = `${spotId}::${activeTag}::${displayedNarrativeText.length}`
     if (autoPlayedRef.current === key) return
     autoPlayedRef.current = key
-    tts.speak(template.baseContent)
+    tts.speak(displayedNarrativeText)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [typedText, template?.baseContent, voicePref.pref, tts.supported])
+  }, [typedText, displayedNarrativeText, voicePref.pref, tts.supported])
 
   useEffect(() => {
     tts.cancel()
@@ -238,22 +244,33 @@ export default function Narrative() {
     sr.start()
   }
 
-  /** 用户点击 AI 语音条切换朗读 / 暂停 / 继续，并把偏好写入持久化 */
+  const handleSubmitText = () => {
+    const q = textInput.trim()
+    if (!q || isThinking || isListening || sr.transcribing) return
+    setTextInput('')
+    void handleAsk(q)
+  }
+
+  /**
+   * 用户点击 AI 语音条切换朗读 / 暂停 / 继续。
+   * 暂停 / 继续仅控制当前播放，不动全局偏好——避免「我只是想暂停一下，
+   * 结果下次进任何剧情都不自动朗读」的回归。
+   * 只有用户从 idle 主动点「点此朗读」时，才把 pref 升为 'on'。
+   */
   const handleToggleTts = () => {
-    if (!tts.supported || !template) return
+    if (!tts.supported) return
     if (tts.speaking && !tts.paused) {
       tts.pause()
-      voicePref.set('off')
       return
     }
     if (tts.paused) {
       tts.resume()
-      voicePref.set('on')
       return
     }
-    // idle：从头读一次剧情
+    const text = showReply && aiReply ? aiReply : displayedNarrativeText
+    if (!text) return
     voicePref.set('on')
-    tts.speak(showReply && aiReply ? aiReply : template.baseContent)
+    tts.speak(text)
   }
 
   const displayTitle = narrativeData?.narrativeTitle || template?.title || spot.name
@@ -526,25 +543,56 @@ export default function Narrative() {
 
           <p className="text-center text-[11px] text-ink-faint mt-3 tracking-[0.04em]">
             {!sr.supported
-              ? '当前浏览器不支持语音识别'
+              ? '当前浏览器不支持语音，请在下方文字提问'
               : isListening
                 ? '再点一次结束提问'
                 : sr.transcribing
                   ? '正在识别…'
                   : isThinking
                     ? '正在思考…'
-                    : '点击麦克风开始提问'}
+                    : '点击麦克风 · 或在下方文字提问'}
           </p>
+
+          {/* Text input fallback —— 不会用语音、识别失败、或习惯打字的用户都走这里 */}
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              handleSubmitText()
+            }}
+            className="mt-4 flex items-center gap-2 rounded-full border border-scroll-line bg-paper-deep px-4 py-2 focus-within:border-gold/50 transition-colors"
+          >
+            <input
+              type="text"
+              value={textInput}
+              onChange={(e) => setTextInput(e.target.value)}
+              disabled={isThinking || isListening || sr.transcribing}
+              placeholder="也可以输入问题…"
+              maxLength={120}
+              className="flex-1 bg-transparent text-[14px] text-ink placeholder:text-ink-faint/70 focus:outline-none disabled:opacity-50"
+            />
+            <button
+              type="submit"
+              disabled={!textInput.trim() || isThinking || isListening || sr.transcribing}
+              aria-label="发送问题"
+              className="flex h-7 w-7 items-center justify-center rounded-full bg-cinnabar text-white transition-all duration-150 active:scale-95 disabled:bg-ink-faint/30 disabled:text-paper"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M22 2L11 13" />
+                <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+              </svg>
+            </button>
+          </form>
 
           {/* Bottom CTA */}
           <div className="mt-6 space-y-3">
-            <button
+            <Button
+              variant="primary"
+              fullWidth
               onClick={handleNextSpot}
-              className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.96] hover:shadow-[0_4px_20px_rgba(163,38,38,0.25)]"
               style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
             >
               去下一个地点
-            </button>
+            </Button>
           </div>
         </div>
       </div>
