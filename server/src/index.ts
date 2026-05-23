@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import narrativeRouter from './narrative/interface'
@@ -5,6 +6,8 @@ import checkInRouter from './check-in/interface'
 import visitorRouter from './visitor/interface'
 import rewardRouter from './reward/interface'
 import summaryRouter from './summary/interface'
+import qaRouter from './qa/interface'
+import asrRouter from './asr/interface'
 
 export const app = express()
 
@@ -16,6 +19,8 @@ app.use('/api/check-in', checkInRouter)
 app.use('/api/visitor', visitorRouter)
 app.use('/api/reward', rewardRouter)
 app.use('/api/summary', summaryRouter)
+app.use('/api/qa', qaRouter)
+app.use('/api/asr', asrRouter)
 
 app.get('/api/health', (_, res) => res.json({ ok: true }))
 

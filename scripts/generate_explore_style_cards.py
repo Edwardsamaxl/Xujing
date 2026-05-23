@@ -183,15 +183,22 @@ def draw_style_marks(draw: ImageDraw.ImageDraw, spec: dict, rng: random.Random) 
             x = 1090 + i * 72
             draw.line((x, 704, x, 728), fill=rgba(gold, 145), width=2)
     elif mode == "portrait":
-        for i in range(5):
-            x = 1040 + i * 90
-            draw.rounded_rectangle((x, 118, x + 34, 774), radius=18, fill=rgba((34, 29, 27), 35))
-        draw.line((930, 96, 1510, 830), fill=rgba((245, 226, 190), 42), width=48)
-        draw.line((998, 96, 1578, 830), fill=rgba((38, 32, 30), 35), width=28)
+        for i in range(6):
+            x = 1008 + i * 82
+            draw.line((x, 108, x + 18, 810), fill=rgba((42, 34, 32), 30), width=12)
+            draw.line((x + 32, 108, x + 50, 810), fill=rgba((244, 225, 190), 18), width=10)
+        for i in range(4):
+            y = 210 + i * 122
+            draw.line((1000, y, 1558, y + 34), fill=rgba((42, 34, 32), 24), width=10)
+        draw.line((950, 96, 1520, 826), fill=rgba((245, 226, 190), 22), width=32)
     elif mode == "playful":
-        for cx, cy, r in [(1130, 184, 44), (1436, 196, 60), (1212, 724, 38), (1500, 716, 48)]:
-            draw.ellipse((cx - r, cy - r, cx + r, cy + r), fill=rgba(accent, 42), outline=rgba(gold, 105), width=3)
-        draw.rounded_rectangle((1135, 508, 1395, 598), radius=18, outline=rgba(gold, 96), width=3)
+        points = [(1068, 244), (1248, 188), (1456, 254), (1388, 596), (1190, 734), (1510, 716)]
+        for a, b in zip(points, points[1:]):
+            draw.line((*a, *b), fill=rgba(gold, 58), width=3)
+        for cx, cy in points:
+            draw.ellipse((cx - 9, cy - 9, cx + 9, cy + 9), fill=rgba((247, 230, 188), 110), outline=rgba(gold, 130), width=2)
+        for cx, cy, r in [(1154, 454, 82), (1455, 682, 62)]:
+            draw.arc((cx - r, cy - r, cx + r, cy + r), 18, 330, fill=rgba(gold, 52), width=3)
     elif mode == "dossier":
         for i in range(3):
             x = 882 + i * 34
@@ -203,9 +210,9 @@ def draw_style_marks(draw: ImageDraw.ImageDraw, spec: dict, rng: random.Random) 
             draw.line((x, y, x + rng.randrange(-100, 100), y + rng.randrange(-50, 50)), fill=rgba((255, 242, 214), 24), width=1)
     elif mode == "material":
         for cx, cy, r in [(982, 682, 180), (1230, 268, 104), (1480, 620, 78)]:
-            draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=rgba(gold, 78), width=5)
+            draw.ellipse((cx - r, cy - r, cx + r, cy + r), outline=rgba(gold, 42), width=3)
         for i in range(9):
-            draw.line((828 + i * 74, 826, 1060 + i * 72, 410), fill=rgba(gold, 34), width=2)
+            draw.line((828 + i * 74, 826, 1060 + i * 72, 410), fill=rgba(gold, 22), width=1)
 
 
 def make_card(slug: str, spec: dict) -> None:

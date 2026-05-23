@@ -222,14 +222,14 @@ export default function Complete() {
                       style={{
                         outline: '1px solid rgba(43,41,38,0.1)',
                         outlineOffset: '-1px',
-                        background: unlocked ? '#F7F4ED' : '#E8E4DA',
+                        background: unlocked ? '#FFFFFF' : '#E8E4DA',
                       }}
                     >
                       {unlocked ? (
                         <img
                           src={item.medalPath}
                           alt={`${item.label}勋章`}
-                          className={`w-full h-full object-contain p-1 transition-transform duration-500 ${
+                          className={`w-full h-full object-contain transition-transform duration-500 ${
                             revealed ? 'scale-100' : 'scale-90'
                           }`}
                           draggable={false}
@@ -357,7 +357,7 @@ export default function Complete() {
                     <div
                       key={item.id}
                       className={`aspect-square rounded-md flex items-center justify-center overflow-hidden ${
-                        unlocked ? 'bg-paper-deep' : 'bg-paper-deep/50'
+                        unlocked ? 'bg-white' : 'bg-paper-deep/50'
                       }`}
                       style={{
                         outline: '1px solid rgba(43,41,38,0.08)',
@@ -368,7 +368,7 @@ export default function Complete() {
                         <img
                           src={item.medalPath}
                           alt={item.label}
-                          className="w-full h-full object-contain p-1"
+                          className="w-full h-full object-contain"
                           draggable={false}
                         />
                       ) : (

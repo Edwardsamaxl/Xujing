@@ -3,7 +3,12 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import TopNav from '../components/TopNav'
 import { getVisitorId, getInterestTag, isNarrativeUnlocked } from '../utils/storage'
 import { SPOTS, getAllSpots } from '../data/spots'
-import { getTemplatesBySpot, NARRATIVE_TEMPLATES } from '../data/narratives'
+import { getTemplate, getTemplatesBySpot, NARRATIVE_TEMPLATES } from '../data/narratives'
+import { getNextRecommendedSpot } from '../utils/route-planner'
+import { useSpeechRecognition } from '../hooks/useSpeechRecognition'
+import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis'
+import { useVoicePreference } from '../hooks/useVoicePreference'
+import { askQuestion } from '../api/qa'
 
 const DEFAULT_HINTS = [
   '问我关于这里的秘辛...',
@@ -20,11 +25,6 @@ interface NarrativeData {
   nextSpotName: string
 }
 
-interface VoiceChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
 export default function Narrative() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
@@ -33,16 +33,23 @@ export default function Narrative() {
   const [entered, setEntered] = useState(false)
   const [showArchive, setShowArchive] = useState(false)
   const [hintIndex, setHintIndex] = useState(0)
-  const [isListening, setIsListening] = useState(false)
   const [userQuestion, setUserQuestion] = useState('')
   const [aiReply, setAiReply] = useState('')
   const [showReply, setShowReply] = useState(false)
+  const [isThinking, setIsThinking] = useState(false)
   const [typedText, setTypedText] = useState('')
   const [narrativeData, setNarrativeData] = useState<NarrativeData | null>(null)
   const [isLoading, setIsLoading] = useState(false)
-  const [voiceHistory, setVoiceHistory] = useState<VoiceChatMessage[]>([])
 
   const interestTag = getInterestTag()
+
+  // 语音：识别 / 合成 / 偏好
+  const sr = useSpeechRecognition('zh-CN')
+  const tts = useSpeechSynthesis()
+  const voicePref = useVoicePreference()
+  const isListening = sr.recording
+  const autoPlayedRef = useRef<string | null>(null)
+
   const hintTimer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Pre-compute spot data
@@ -134,6 +141,62 @@ export default function Narrative() {
     return () => clearInterval(interval)
   }, [narrativeData, template])
 
+  useEffect(() => {
+    if (!template || !tts.supported) return
+    if (typedText !== template.baseContent) return
+    if (voicePref.pref === 'off') return
+    const key = `${spotId}::${activeTag}`
+    if (autoPlayedRef.current === key) return
+    autoPlayedRef.current = key
+    tts.speak(template.baseContent)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typedText, template?.baseContent, voicePref.pref, tts.supported])
+
+  useEffect(() => {
+    tts.cancel()
+    autoPlayedRef.current = null
+    setShowReply(false)
+    setAiReply('')
+    setUserQuestion('')
+    setIsThinking(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spotId, activeTag])
+
+  useEffect(() => {
+    if (!sr.finalText) return
+    const question = sr.finalText
+    sr.reset()
+    void handleAsk(question)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sr.finalText])
+
+  async function handleAsk(question: string) {
+    const visitorId = getVisitorId()
+    if (!visitorId) {
+      navigate('/')
+      return
+    }
+    tts.cancel()
+    setUserQuestion(question)
+    setIsThinking(true)
+    setShowReply(false)
+    try {
+      const answer = await askQuestion({
+        visitorId,
+        currentSpotId: spotId ?? undefined,
+        question,
+      })
+      setAiReply(answer)
+      setShowReply(true)
+      if (tts.supported && answer) tts.speak(answer)
+    } catch {
+      setAiReply('网络暂时中断，请稍后再问。')
+      setShowReply(true)
+    } finally {
+      setIsThinking(false)
+    }
+  }
+
   if (!spot) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-5">
@@ -153,66 +216,44 @@ export default function Narrative() {
     if (narrativeData?.nextSpotId) {
       navigate(`/navigate?spotId=${narrativeData.nextSpotId}`)
     } else {
-      navigate('/complete')
+      const nextSpotId = getNextRecommendedSpot(spotId)
+      if (nextSpotId) {
+        navigate(`/navigate?spotId=${nextSpotId}`)
+      } else {
+        navigate('/complete')
+      }
     }
   }
 
-  const handleMicStart = () => {
-    setIsListening(true)
+  const handleMicToggle = () => {
+    if (!sr.supported || isThinking) return
+    if (isListening) {
+      sr.stop()
+      return
+    }
     setShowReply(false)
     setAiReply('')
     setUserQuestion('')
+    setIsThinking(false)
+    sr.start()
   }
 
-  const handleMicEnd = async () => {
-    setIsListening(false)
-
-    // For MVP: simulate a question if not using real ASR yet
-    // TODO: integrate with teammate's ASR module
-    const simulatedQuestion = hints[hintIndex] || '这扇窗为何半掩？'
-    setUserQuestion(simulatedQuestion)
-
-    const visitorId = getVisitorId()
-    if (!visitorId || !spotId) {
-      setAiReply('请先登录后再提问。')
-      setShowReply(true)
+  /** 用户点击 AI 语音条切换朗读 / 暂停 / 继续，并把偏好写入持久化 */
+  const handleToggleTts = () => {
+    if (!tts.supported || !template) return
+    if (tts.speaking && !tts.paused) {
+      tts.pause()
+      voicePref.set('off')
       return
     }
-
-    try {
-      const newHistory: VoiceChatMessage[] = [
-        ...voiceHistory,
-        { role: 'user', content: simulatedQuestion },
-      ]
-
-      const res = await fetch('/api/narrative/voice-chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          visitorId,
-          spotId,
-          transcript: simulatedQuestion,
-          conversationHistory: newHistory.slice(-10),
-          interestTag: activeTag,
-        }),
-      })
-
-      if (!res.ok) throw new Error('Voice chat failed')
-      const data = await res.json()
-
-      setAiReply(data.replyText)
-      setVoiceHistory([...newHistory, { role: 'assistant', content: data.replyText }])
-
-      if (data.divertHint) {
-        // Optional: show soft diversion toast
-        console.log('Divert hint:', data.divertHint)
-      }
-    } catch (e) {
-      console.error(e)
-      setAiReply('叙叙刚才走神了……你能再问一遍吗？')
+    if (tts.paused) {
+      tts.resume()
+      voicePref.set('on')
+      return
     }
-
-    setShowReply(true)
+    // idle：从头读一次剧情
+    voicePref.set('on')
+    tts.speak(showReply && aiReply ? aiReply : template.baseContent)
   }
 
   const displayTitle = narrativeData?.narrativeTitle || template?.title || spot.name
@@ -258,16 +299,41 @@ export default function Narrative() {
                   <p className="text-[14px] leading-[1.6] text-ink-dim mt-2">{template.title}</p>
                 )}
 
-                {/* AI voice indicator */}
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="flex items-center gap-0.5">
-                    <span className="w-0.5 h-3 bg-cinnabar/60 rounded-full animate-pulse" style={{ animationDelay: '0ms' }} />
-                    <span className="w-0.5 h-4 bg-cinnabar/60 rounded-full animate-pulse" style={{ animationDelay: '150ms' }} />
-                    <span className="w-0.5 h-2.5 bg-cinnabar/60 rounded-full animate-pulse" style={{ animationDelay: '300ms' }} />
-                    <span className="w-0.5 h-3.5 bg-cinnabar/60 rounded-full animate-pulse" style={{ animationDelay: '450ms' }} />
-                  </div>
-                  <span className="text-[12px] text-ink-faint">{isLoading ? 'AI 正在构思叙事…' : 'AI 语音讲解中...'}</span>
-                </div>
+                {/* AI voice indicator: 真朗读 / 暂停 / 继续 */}
+                {tts.supported && (
+                  <button
+                    type="button"
+                    onClick={handleToggleTts}
+                    className="mt-4 flex items-center gap-2 px-2 py-1 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"
+                    aria-label={tts.speaking ? '暂停朗读' : '朗读剧情'}
+                  >
+                    <div className="flex items-center gap-0.5">
+                      <span
+                        className={`w-0.5 h-3 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '0ms' }}
+                      />
+                      <span
+                        className={`w-0.5 h-4 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '150ms' }}
+                      />
+                      <span
+                        className={`w-0.5 h-2.5 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '300ms' }}
+                      />
+                      <span
+                        className={`w-0.5 h-3.5 rounded-full bg-cinnabar/60 ${tts.speaking && !tts.paused ? 'animate-pulse' : 'opacity-40'}`}
+                        style={{ animationDelay: '450ms' }}
+                      />
+                    </div>
+                    <span className="text-[12px] text-ink-faint">
+                      {tts.speaking && !tts.paused
+                        ? 'AI 语音讲解中 · 点此暂停'
+                        : tts.paused
+                          ? '已暂停 · 点此继续'
+                          : '点此朗读剧情'}
+                    </span>
+                  </button>
+                )}
 
                 {/* Narrative body with typewriter */}
                 {isLoading ? (
@@ -351,14 +417,41 @@ export default function Narrative() {
         {/* Middle: Thinking feedback area ~20% */}
         <div className="px-5 py-3">
           <div className="text-center">
-            {!isListening && !showReply && (
+            {!isListening && !sr.transcribing && !showReply && !isThinking && !sr.errorCode && (
               <p className="text-[13px] text-ink-faint/80 tracking-[0.02em]">
-                你可以长按麦克风问我：{hints[0]}
+                {sr.supported
+                  ? `你可以点击麦克风问我：${hints[0]}`
+                  : '当前浏览器不支持麦克风录音，请改用支持 MediaRecorder 的浏览器'}
+              </p>
+            )}
+            {sr.errorCode && !isListening && !sr.transcribing && !isThinking && (
+              <p className="text-[13px] text-cinnabar/90 tracking-[0.02em] px-4">
+                {sr.errorCode === 'not-allowed'
+                  ? '麦克风权限被拒。请在 Chrome 地址栏左侧 🔒 图标里把麦克风改为「允许」，并确认 macOS 系统设置 → 隐私与安全 → 麦克风 中已勾选 Chrome'
+                  : sr.errorCode === 'no-mic'
+                    ? '没有检测到可用的麦克风设备'
+                    : sr.errorCode === 'no-speech'
+                      ? '没有识别到内容，请靠近麦克风再说一次'
+                      : sr.errorCode === 'asr-failed'
+                        ? '语音识别服务暂时不可用，请稍后重试'
+                        : sr.errorCode === 'recorder-failed' || sr.errorCode === 'mic-failed'
+                          ? '录音失败，请刷新页面重试'
+                          : `语音识别异常：${sr.errorCode}（按 F12 查看控制台）`}
               </p>
             )}
             {isListening && (
               <p className="text-[13px] text-gold animate-pulse tracking-[0.02em]">
-                正在聆听您的疑问…
+                正在聆听您的疑问…（再点一次麦克风结束）
+              </p>
+            )}
+            {sr.transcribing && (
+              <p className="text-[13px] text-gold/80 tracking-[0.02em] animate-pulse">
+                正在识别您说的话…
+              </p>
+            )}
+            {isThinking && (
+              <p className="text-[13px] text-cinnabar/80 tracking-[0.02em] animate-pulse">
+                正在为您查阅资料…
               </p>
             )}
           </div>
@@ -379,11 +472,17 @@ export default function Narrative() {
           {/* Mic button with breathing glow */}
           <div className="flex justify-center">
             <button
-              onMouseDown={handleMicStart}
-              onMouseUp={handleMicEnd}
-              onTouchStart={handleMicStart}
-              onTouchEnd={handleMicEnd}
-              className="relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95"
+              disabled={!sr.supported || isThinking || sr.transcribing}
+              onClick={handleMicToggle}
+              aria-label={
+                !sr.supported
+                  ? '当前浏览器不支持语音识别'
+                  : isListening
+                    ? '点击停止录音'
+                    : '点击开始提问'
+              }
+              aria-pressed={isListening}
+              className="relative w-16 h-16 rounded-full flex items-center justify-center transition-all duration-200 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
               style={{
                 backgroundColor: isListening ? '#A32626' : '#F7F4ED',
                 border: `2px solid ${isListening ? '#A32626' : '#D4CFC3'}`,
@@ -426,7 +525,15 @@ export default function Narrative() {
           </div>
 
           <p className="text-center text-[11px] text-ink-faint mt-3 tracking-[0.04em]">
-            {isListening ? '松开结束提问' : '长按麦克风提问'}
+            {!sr.supported
+              ? '当前浏览器不支持语音识别'
+              : isListening
+                ? '再点一次结束提问'
+                : sr.transcribing
+                  ? '正在识别…'
+                  : isThinking
+                    ? '正在思考…'
+                    : '点击麦克风开始提问'}
           </p>
 
           {/* Bottom CTA */}

@@ -7,6 +7,7 @@ import {
   getTopFactsBySpot,
   getConnectionsFrom,
 } from '../data'
+import { callDeepSeek } from '../llm/deepseek'
 
 export interface NarrativeResponse {
   currentSpotName: string
@@ -79,7 +80,7 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
       rewardHint: undefined,
     })
 
-    narrativeText = await callDeepSeek(prompt)
+    narrativeText = (await callDeepSeek(prompt)) || '请继续探索。'
 
     // Validate output length
     if (narrativeText.length < 50 || narrativeText.length > 400) {
@@ -136,35 +137,6 @@ function generateFallbackNarrative(ctx: FallbackCtx): string {
   return `${firstSentence}${flavorText ? `「${flavorText}」` : ''}${payoff}`
 }
 
-async function callDeepSeek(prompt: string): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY
-  const baseUrl = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-  if (!apiKey) {
-    throw new Error('DEEPSEEK_API_KEY not configured')
-  }
-
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.8,
-      max_tokens: 512,
-    }),
-  })
-
-  if (!res.ok) {
-    throw new Error(`DeepSeek API error: ${res.status}`)
-  }
-
-  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
-  return data.choices?.[0]?.message?.content?.trim() || '请继续探索。'
-}
-
 // 为指定当前点位生成叙事（含软导流钩子）
 export async function generateSpotNarrative(
   visitorId: string,
@@ -215,7 +187,7 @@ export async function generateSpotNarrative(
       rewardHint: undefined,
     })
 
-    narrativeText = await callDeepSeek(prompt)
+    narrativeText = (await callDeepSeek(prompt)) || '请继续探索。'
 
     if (narrativeText.length < 50 || narrativeText.length > 400) {
       throw new Error('LLM output length invalid')

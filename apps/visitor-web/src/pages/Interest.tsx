@@ -127,7 +127,10 @@ export default function Interest() {
       const res = await fetch('/api/visitor/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ campaignId: 'demo', interestTags: [selected] }),
+        body: JSON.stringify({
+          campaignId: 'campaign-palace-001',
+          interestTags: [selected],
+        }),
       })
       const data = await res.json()
       setVisitorId(data.id)
