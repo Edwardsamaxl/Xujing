@@ -44,7 +44,7 @@ function App() {
 
         <div className="relative z-10">
           <Routes location={location}>
-            <Route path="/" element={<PageTransition><Start /></PageTransition>} />
+            <Route path="/" element={<Start />} />
             <Route path="/interest" element={<PageTransition><Interest /></PageTransition>} />
             <Route path="/explore" element={<PageTransition><Explore /></PageTransition>} />
             <Route path="/navigate" element={<PageTransition><Navigate /></PageTransition>} />

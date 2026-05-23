@@ -14,6 +14,7 @@ const CARD_ART: Record<
     stamp: string
     stampSub: string
     accent: string
+    background: string
   }
 > = {
   'spot-clock': {
@@ -24,6 +25,7 @@ const CARD_ART: Record<
     stamp: '时',
     stampSub: '钟表',
     accent: '#8C5A20',
+    background: '/assets/explore/history/clock.svg',
   },
   'spot-treasure': {
     eyebrow: '金瓯永固 · 田黄三连章',
@@ -33,6 +35,7 @@ const CARD_ART: Record<
     stamp: '宝',
     stampSub: '珍藏',
     accent: '#9F6D16',
+    background: '/assets/explore/history/treasure.svg',
   },
   'spot-ceramic': {
     eyebrow: '八千年窑火 · 青花粉彩',
@@ -42,6 +45,7 @@ const CARD_ART: Record<
     stamp: '瓷',
     stampSub: '窑火',
     accent: '#476F72',
+    background: '/assets/explore/history/ceramic.svg',
   },
   'spot-yanxi': {
     eyebrow: '灵沼轩 · 水晶宫遗梦',
@@ -51,6 +55,7 @@ const CARD_ART: Record<
     stamp: '沼',
     stampSub: '延禧',
     accent: '#54677D',
+    background: '/assets/explore/history/yanxi.svg',
   },
   'spot-shoukang': {
     eyebrow: '崇庆皇太后 · 颐养之所',
@@ -60,6 +65,7 @@ const CARD_ART: Record<
     stamp: '寿',
     stampSub: '颐养',
     accent: '#934C36',
+    background: '/assets/explore/history/shoukang.svg',
   },
   'spot-cining': {
     eyebrow: '太后正宫 · 雕塑馆',
@@ -69,85 +75,8 @@ const CARD_ART: Record<
     stamp: '宁',
     stampSub: '慈宁',
     accent: '#66714B',
+    background: '/assets/explore/history/cining.svg',
   },
-}
-
-function CardMotif({ spotId, color }: { spotId: string; color: string }) {
-  const common = {
-    fill: 'none',
-    stroke: color,
-    strokeWidth: 1.5,
-    strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
-  }
-
-  if (spotId === 'spot-clock') {
-    return (
-      <svg viewBox="0 0 120 120" className="h-full w-full">
-        <circle cx="70" cy="48" r="22" {...common} />
-        <circle cx="70" cy="48" r="5" fill={color} opacity="0.35" />
-        {Array.from({ length: 10 }).map((_, i) => {
-          const angle = (i * Math.PI * 2) / 10
-          const x1 = 70 + Math.cos(angle) * 28
-          const y1 = 48 + Math.sin(angle) * 28
-          const x2 = 70 + Math.cos(angle) * 34
-          const y2 = 48 + Math.sin(angle) * 34
-          return <path key={i} d={`M${x1} ${y1}L${x2} ${y2}`} {...common} />
-        })}
-        <path d="M46 84c8-18 28-19 36 0M58 70h12M64 26v22l13 8" {...common} />
-      </svg>
-    )
-  }
-
-  if (spotId === 'spot-treasure') {
-    return (
-      <svg viewBox="0 0 120 120" className="h-full w-full">
-        <path d="M36 48 52 30h34l16 18-33 40Z" {...common} />
-        <path d="M36 48h66M52 30l17 58M86 30 69 88M52 30l17 18 17-18" {...common} />
-        <circle cx="36" cy="78" r="7" {...common} />
-        <circle cx="92" cy="77" r="5" fill={color} opacity="0.18" />
-      </svg>
-    )
-  }
-
-  if (spotId === 'spot-ceramic') {
-    return (
-      <svg viewBox="0 0 120 120" className="h-full w-full">
-        <path d="M42 33c10 8 36 8 46 0v15c0 21-8 39-23 39S42 69 42 48Z" {...common} />
-        <path d="M45 51c10 7 30 7 40 0M46 63c11 8 27 8 38 0" {...common} />
-        <path d="M58 38c-3 7 4 11 0 19M72 37c4 6-3 12 2 18" {...common} opacity="0.55" />
-      </svg>
-    )
-  }
-
-  if (spotId === 'spot-yanxi') {
-    return (
-      <svg viewBox="0 0 120 120" className="h-full w-full">
-        <path d="M37 91V36l11-12h42l11 12v55" {...common} />
-        <path d="M49 91V42h40v49M49 58h40M49 74h40M69 42v49M37 91h64" {...common} />
-        <path d="M58 24c4 7 18 7 22 0" {...common} opacity="0.55" />
-      </svg>
-    )
-  }
-
-  if (spotId === 'spot-shoukang') {
-    return (
-      <svg viewBox="0 0 120 120" className="h-full w-full">
-        <path d="M38 36h64v51H38zM50 36v51M90 36v51M38 53h64M38 70h64" {...common} />
-        <path d="M64 61c0-9 14-9 14 0 0 10-14 12-14 22 0-10-14-12-14-22 0-9 14-9 14 0Z" {...common} />
-        <path d="M50 28h40" {...common} opacity="0.55" />
-      </svg>
-    )
-  }
-
-  return (
-    <svg viewBox="0 0 120 120" className="h-full w-full">
-      <path d="M46 82c18-1 34-11 43-29M40 87c17 2 40-4 58-20" {...common} />
-      <path d="M50 43c8-12 26-12 34 0 6 9 2 22-10 27l-8 3-8-3C46 65 44 52 50 43Z" {...common} />
-      <path d="M66 33v42M53 52h26" {...common} opacity="0.55" />
-      <circle cx="42" cy="78" r="4" fill={color} opacity="0.2" />
-    </svg>
-  )
 }
 
 export default function Explore() {
@@ -240,31 +169,14 @@ export default function Explore() {
                     status === 'completed' ? 'grayscale-[0.25]' : ''
                   }`}
                 >
-                  <div className="pointer-events-none absolute inset-[5px] rounded-[10px] border border-[#d9bd7b]/70" />
-                  <div className="pointer-events-none absolute inset-[9px] rounded-[8px] border border-[#806022]/20" />
-                  <div
-                    className="pointer-events-none absolute inset-0 opacity-[0.2]"
-                    style={{
-                      backgroundImage:
-                        'radial-gradient(circle at 24% 18%, rgba(128,96,34,0.16) 0 1px, transparent 1px), radial-gradient(circle at 78% 72%, rgba(43,41,38,0.10) 0 1px, transparent 1px)',
-                      backgroundSize: '17px 17px, 23px 23px',
-                    }}
+                  <img
+                    src={art.background}
+                    alt=""
+                    className="pointer-events-none absolute inset-0 h-full w-full object-fill"
                   />
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(115deg,rgba(255,255,255,0.42),rgba(255,255,255,0)_42%),radial-gradient(ellipse_at_bottom_right,rgba(128,96,34,0.14),transparent_46%)]" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(244,234,216,0)_0%,rgba(244,234,216,0)_18%,rgba(255,249,235,0.82)_22%,rgba(255,249,235,0.84)_62%,rgba(255,249,235,0)_78%)]" />
 
-                  <div className="relative grid min-h-[176px] grid-cols-[48px_minmax(0,1fr)_84px] gap-3 px-4 py-4">
-                    <div className="flex items-center justify-center">
-                      <div className="flex h-[132px] w-[34px] flex-col items-center justify-between rounded-[8px] border border-[#c5964a]/70 bg-[#8f2f24] px-1.5 py-3 shadow-[inset_0_0_0_1px_rgba(255,221,151,0.22)]">
-                        <span className="font-display text-[20px] leading-none text-[#e1c47f]">{art.stamp}</span>
-                        <span className="writing-vertical font-display text-[13px] leading-none tracking-[0.18em] text-[#e8d29a]">
-                          {spot.shortName}
-                        </span>
-                        <span className="h-4 w-4 rounded-[3px] border border-[#d6b66f]/70 text-[8px] leading-[14px] text-[#d6b66f]">
-                          印
-                        </span>
-                      </div>
-                    </div>
-
+                  <div className="relative min-h-[176px] px-4 py-4 pl-[78px] pr-[82px]">
                     <div className="min-w-0 pt-1">
                       <div className="mb-2 flex min-h-[18px] items-center gap-2">
                         <span className="truncate text-[10px] font-medium tracking-[0.12em] text-[#835f28]">
@@ -307,21 +219,15 @@ export default function Explore() {
                       </div>
                     </div>
 
-                    <div className="relative flex flex-col items-center justify-between border-l border-[#b89a61]/25 pl-2">
-                      <div className="mt-1 h-[78px] w-[78px] opacity-75 transition-transform duration-300 group-hover:scale-[1.03]">
-                        <CardMotif spotId={spot.id} color={art.accent} />
-                      </div>
-
-                      <div
-                        className={`relative flex h-[58px] w-[58px] rotate-[-10deg] flex-col items-center justify-center rounded-full border-2 bg-[#f8edd6]/55 ${
-                          status === 'completed' ? 'border-cinnabar/70 text-cinnabar' : 'border-current'
-                        }`}
-                        style={{ color: status === 'completed' ? undefined : art.accent }}
-                      >
-                        <span className="absolute inset-1 rounded-full border border-current opacity-45" />
-                        <span className="font-display text-[21px] leading-none">{status === 'completed' ? '勘' : art.stamp}</span>
-                        <span className="mt-0.5 text-[8px] font-medium tracking-[0.14em]">{status === 'completed' ? '已勘' : art.stampSub}</span>
-                      </div>
+                    <div
+                      className={`absolute bottom-4 right-4 flex h-[58px] w-[58px] rotate-[-10deg] flex-col items-center justify-center rounded-full border-2 bg-[#f8edd6]/70 ${
+                        status === 'completed' ? 'border-cinnabar/70 text-cinnabar' : 'border-current'
+                      }`}
+                      style={{ color: status === 'completed' ? undefined : art.accent }}
+                    >
+                      <span className="absolute inset-1 rounded-full border border-current opacity-45" />
+                      <span className="font-display text-[21px] leading-none">{status === 'completed' ? '勘' : art.stamp}</span>
+                      <span className="mt-0.5 text-[8px] font-medium tracking-[0.14em]">{status === 'completed' ? '已勘' : art.stampSub}</span>
                     </div>
 
                     {status === 'completed' && (

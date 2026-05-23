@@ -94,7 +94,6 @@ export default function Narrative() {
     return () => clearInterval(interval)
   }, [spotId, activeTag, template])
 
-  // 打字机完成后自动 TTS 朗读剧情正文
   useEffect(() => {
     if (!template || !tts.supported) return
     if (typedText !== template.baseContent) return
@@ -103,11 +102,9 @@ export default function Narrative() {
     if (autoPlayedRef.current === key) return
     autoPlayedRef.current = key
     tts.speak(template.baseContent)
-    // tts.speak 引用稳定；只关心这几个依赖
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [typedText, template?.baseContent, voicePref.pref, tts.supported])
 
-  // 切换展馆 / 视角时取消旧朗读
   useEffect(() => {
     tts.cancel()
     autoPlayedRef.current = null
@@ -118,7 +115,6 @@ export default function Narrative() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spotId, activeTag])
 
-  // ASR 拿到最终识别文本 → 调后端 QA → 回填 + 朗读
   useEffect(() => {
     if (!sr.finalText) return
     const question = sr.finalText
@@ -133,7 +129,7 @@ export default function Narrative() {
       navigate('/')
       return
     }
-    tts.cancel() // 停掉正在朗读的剧情，让位给问答
+    tts.cancel()
     setUserQuestion(question)
     setIsThinking(true)
     setShowReply(false)
@@ -154,7 +150,7 @@ export default function Narrative() {
     }
   }
 
-  if (!spotId || !SPOTS[spotId] || !spot) {
+  if (!spot) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-5">
         <p className="text-ink-dim mb-4">暂无可用密档</p>
@@ -169,6 +165,7 @@ export default function Narrative() {
   }
 
   const handleNextSpot = () => {
+    if (!spotId) return
     const nextSpotId = getNextRecommendedSpot(spotId)
     if (nextSpotId) {
       navigate(`/navigate?spotId=${nextSpotId}`)
@@ -301,6 +298,13 @@ export default function Narrative() {
                   <p className="text-center text-[15px] leading-[1.6] text-gold/70 italic font-serif mt-5">
                     &ldquo;{template.flavorText}&rdquo;
                   </p>
+                )}
+
+                {/* Next spot hook — narrative continuation */}
+                {template?.nextHook && (
+                  <div className="mt-5 pl-3 border-l-2 border-gold/30">
+                    <p className="text-[14px] leading-[1.7] text-ink-dim">{template.nextHook}</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -449,15 +453,8 @@ export default function Narrative() {
                   : '长按麦克风提问'}
           </p>
 
-          {/* Next spot hook card */}
-          {template?.nextHook && (
-            <div className="mb-4 rounded-xl border border-gold/20 bg-gold-dim/20 p-4">
-              <p className="text-[13px] leading-[1.7] text-ink-dim">{template.nextHook}</p>
-            </div>
-          )}
-
           {/* Bottom CTA */}
-          <div className="mt-2 space-y-3">
+          <div className="mt-6 space-y-3">
             <button
               onClick={handleNextSpot}
               className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.96] hover:shadow-[0_4px_20px_rgba(163,38,38,0.25)]"

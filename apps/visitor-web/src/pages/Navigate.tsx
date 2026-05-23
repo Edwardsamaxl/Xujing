@@ -4,16 +4,73 @@ import { SPOTS, getCrowdLevel } from '../data/spots'
 import { addCompletedSpot, unlockNarrative, setCurrentTarget, getCompletedSpots } from '../utils/storage'
 import { getRouteTo } from '../utils/route-planner'
 
-/* ---------- 故宫简图坐标（viewBox 0 0 400 280）---------- */
-const ENTRANCE_POS = { x: 200, y: 262 }
+/* ---------- 故宫简图 —— 基于真实布局（viewBox 0 0 400 320） ---------- */
 
+/* 6 个点位坐标，按故宫真实方位放置 */
 const SPOT_POS: Record<string, { x: number; y: number }> = {
-  'spot-treasure': { x: 282, y: 48 },   // 珍宝馆 — 东北
-  'spot-clock':    { x: 314, y: 96 },   // 钟表馆 — 内廷东
-  'spot-yanxi':    { x: 296, y: 148 },  // 延禧宫 — 东六宫
-  'spot-shoukang': { x: 106, y: 88 },   // 寿康宫 — 外西路偏北
-  'spot-cining':   { x: 88,  y: 152 },  // 慈宁宫 — 外西路
-  'spot-ceramic':  { x: 74,  y: 214 },  // 武英殿 — 外朝西
+  'spot-ceramic':  { x: 70,  y: 215 }, // 武英殿 — 外朝西路（熙和门以西）
+  'spot-clock':    { x: 305, y: 125 }, // 钟表馆 — 内廷东路（景运门以东）
+  'spot-treasure': { x: 340, y: 50 },  // 珍宝馆 — 外东路东北角（锡庆门入）
+  'spot-yanxi':    { x: 315, y: 95 },  // 延禧宫 — 东六宫
+  'spot-cining':   { x: 80,  y: 135 }, // 慈宁宫 — 外西路偏南
+  'spot-shoukang': { x: 65,  y: 85 },  // 寿康宫 — 外西路偏北
+}
+
+/* 关键通道节点 */
+const NODES: Record<string, { x: number; y: number }> = {
+  entrance:  { x: 200, y: 290 }, // 午门
+  taihemen:  { x: 200, y: 230 }, // 太和门
+  qianqing:  { x: 200, y: 145 }, // 乾清门
+  xihe:      { x: 115, y: 210 }, // 熙和门（外朝西路入口）
+  longzong:  { x: 130, y: 145 }, // 隆宗门（外西路入口）
+  jingyun:   { x: 270, y: 145 }, // 景运门（内廷东路入口）
+  xiqing:    { x: 290, y: 105 }, // 锡庆门 / 九龙壁（宁寿宫入口）
+}
+
+/* 通道邻接图 —— 只连真实可走的开放通道 */
+const GRAPH: Record<string, string[]> = {
+  entrance:  ['taihemen'],
+  taihemen:  ['entrance', 'qianqing', 'xihe'],
+  qianqing:  ['taihemen', 'longzong', 'jingyun'],
+  xihe:      ['taihemen', 'spot-ceramic'],
+  longzong:  ['qianqing', 'spot-cining', 'spot-shoukang'],
+  jingyun:   ['qianqing', 'spot-clock', 'spot-yanxi', 'xiqing'],
+  xiqing:    ['jingyun', 'spot-treasure'],
+  'spot-ceramic':  ['xihe'],
+  'spot-cining':   ['longzong', 'spot-shoukang'],
+  'spot-shoukang': ['longzong', 'spot-cining'],
+  'spot-clock':    ['jingyun', 'spot-yanxi'],
+  'spot-yanxi':    ['jingyun', 'spot-clock'],
+  'spot-treasure': ['xiqing'],
+}
+
+/* BFS 找最短通道 */
+function findRoutePath(fromId: string | null, toId: string): string {
+  const from = fromId ?? 'entrance'
+  if (from === toId) return ''
+
+  const queue: { node: string; path: string[] }[] = [{ node: from, path: [from] }]
+  const visited = new Set([from])
+
+  while (queue.length) {
+    const { node, path } = queue.shift()!
+    for (const neighbor of GRAPH[node] ?? []) {
+      if (visited.has(neighbor)) continue
+      const newPath = [...path, neighbor]
+      if (neighbor === toId) {
+        const allNodes: Record<string, { x: number; y: number }> = { ...NODES, ...SPOT_POS }
+        return newPath
+          .map((n, i) => {
+            const p = allNodes[n]
+            return `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+          })
+          .join(' ')
+      }
+      visited.add(neighbor)
+      queue.push({ node: neighbor, path: newPath })
+    }
+  }
+  return ''
 }
 
 const COLD_SPOT_FLAVOR: Record<string, string> = {
@@ -23,16 +80,6 @@ const COLD_SPOT_FLAVOR: Record<string, string> = {
   'spot-clock': '铜壶滴漏中那片从未见过的金属薄片，在等你解读……',
   'spot-treasure': '凤冠上消失的两颗东珠，似乎指向一段无人知晓的往事……',
   'spot-ceramic': '碎瓷片上的四字款识，与展出真品有着微妙差异……',
-}
-
-/* 生成两点间的曲线路径（带轻微弧度，更像手绘） */
-function curvedPath(a: { x: number; y: number }, b: { x: number; y: number }): string {
-  const mx = (a.x + b.x) / 2
-  const my = (a.y + b.y) / 2
-  // 给中点加一点随机偏移，制造手绘感
-  const offX = (b.y - a.y) * 0.15
-  const offY = -(b.x - a.x) * 0.15
-  return `M ${a.x} ${a.y} Q ${mx + offX} ${my + offY} ${b.x} ${b.y}`
 }
 
 export default function Navigate() {
@@ -70,12 +117,7 @@ export default function Navigate() {
 
   const completed = getCompletedSpots()
   const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
-  const startPos = lastCompleted ? SPOT_POS[lastCompleted] : ENTRANCE_POS
-  const endPos = SPOT_POS[spotId]
-  const routePath = useMemo(() => {
-    if (!startPos || !endPos) return ''
-    return curvedPath(startPos, endPos)
-  }, [startPos, endPos])
+  const routePath = useMemo(() => findRoutePath(lastCompleted, spotId), [lastCompleted, spotId])
 
   const handleArrived = () => {
     // 1. 标记已勘验
@@ -116,37 +158,49 @@ export default function Navigate() {
         </div>
 
         {/* Forbidden City mini map */}
-        <div className="relative w-full h-[260px] rounded-xl border border-scroll-line bg-paper-deep overflow-hidden mb-4">
-          <svg className="w-full h-full" viewBox="0 0 400 280" fill="none" preserveAspectRatio="xMidYMid meet">
-            {/* --- 背景纹理 --- */}
+        <div className="relative w-full h-[280px] rounded-xl border border-scroll-line bg-paper-deep overflow-hidden mb-4">
+          <svg className="w-full h-full" viewBox="0 0 400 320" fill="none" preserveAspectRatio="xMidYMid meet">
             <defs>
-              <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#D4CFC3" strokeWidth="0.5" opacity="0.35" />
-              </pattern>
               <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
                 <path d="M0,0 L6,3 L0,6 L1.5,3 Z" fill="#B8923A" />
               </marker>
             </defs>
-            <rect width="400" height="280" fill="url(#grid)" />
 
-            {/* --- 宫墙轮廓（简化） --- */}
-            {/* 外城 */}
-            <rect x="36" y="16" width="328" height="248" rx="2" stroke="#C4BBA8" strokeWidth="1.2" fill="none" opacity="0.6" />
-            {/* 内廷北墙（乾清门以北） */}
-            <rect x="92" y="16" width="216" height="124" rx="1" stroke="#C4BBA8" strokeWidth="0.8" fill="none" opacity="0.35" strokeDasharray="4 3" />
-            {/* 中轴线 */}
-            <line x1="200" y1="16" x2="200" y2="264" stroke="#C4BBA8" strokeWidth="0.6" opacity="0.25" strokeDasharray="3 3" />
-            {/* 东华门路 */}
-            <line x1="308" y1="16" x2="308" y2="264" stroke="#C4BBA8" strokeWidth="0.5" opacity="0.18" strokeDasharray="2 2" />
-            {/* 西华门路 */}
-            <line x1="92" y1="16" x2="92" y2="264" stroke="#C4BBA8" strokeWidth="0.5" opacity="0.18" strokeDasharray="2 2" />
+            {/* --- 宫墙轮廓 --- */}
+            {/* 外城墙 */}
+            <rect x="32" y="12" width="336" height="296" rx="1" stroke="#B8AE9A" strokeWidth="1.5" fill="none" opacity="0.55" />
+            {/* 北城墙加粗 */}
+            <line x1="32" y1="12" x2="368" y2="12" stroke="#B8AE9A" strokeWidth="2.5" opacity="0.5" />
+            {/* 南城墙（午门）加粗 */}
+            <line x1="32" y1="308" x2="368" y2="308" stroke="#B8AE9A" strokeWidth="2.5" opacity="0.5" />
 
-            {/* --- 区域文字标注 --- */}
-            <text x="200" y="78" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.5" fontFamily="LXGW WenKai, serif">内廷</text>
-            <text x="200" y="186" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.5" fontFamily="LXGW WenKai, serif">外朝</text>
-            <text x="200" y="274" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.5" fontFamily="LXGW WenKai, serif">午门</text>
+            {/* 外朝 / 内廷分界 —— 保和殿北 / 乾清门一线 */}
+            <line x1="32" y1="168" x2="368" y2="168" stroke="#C4BBA8" strokeWidth="0.8" opacity="0.3" strokeDasharray="4 3" />
 
-            {/* --- 所有点位（非目标用淡色） --- */}
+            {/* --- 中轴线 --- */}
+            <line x1="200" y1="12" x2="200" y2="308" stroke="#C4BBA8" strokeWidth="0.6" opacity="0.22" strokeDasharray="3 3" />
+
+            {/* --- 主要通道门（小方块标记） --- */}
+            {/* 熙和门 — 外朝西路 */}
+            <rect x={NODES.xihe.x - 4} y={NODES.xihe.y - 3} width="8" height="6" fill="#B8AE9A" opacity="0.5" rx="1" />
+            <text x={NODES.xihe.x} y={NODES.xihe.y + 12} textAnchor="middle" fontSize="7" fill="#B8AE9A" opacity="0.5" fontFamily="LXGW WenKai, serif">熙和门</text>
+            {/* 隆宗门 — 外西路入口 */}
+            <rect x={NODES.longzong.x - 4} y={NODES.longzong.y - 3} width="8" height="6" fill="#B8AE9A" opacity="0.5" rx="1" />
+            <text x={NODES.longzong.x} y={NODES.longzong.y - 8} textAnchor="middle" fontSize="7" fill="#B8AE9A" opacity="0.5" fontFamily="LXGW WenKai, serif">隆宗门</text>
+            {/* 景运门 — 内廷东路入口 */}
+            <rect x={NODES.jingyun.x - 4} y={NODES.jingyun.y - 3} width="8" height="6" fill="#B8AE9A" opacity="0.5" rx="1" />
+            <text x={NODES.jingyun.x} y={NODES.jingyun.y - 8} textAnchor="middle" fontSize="7" fill="#B8AE9A" opacity="0.5" fontFamily="LXGW WenKai, serif">景运门</text>
+            {/* 锡庆门（九龙壁）— 宁寿宫入口 */}
+            <rect x={NODES.xiqing.x - 4} y={NODES.xiqing.y - 3} width="8" height="6" fill="#B8AE9A" opacity="0.5" rx="1" />
+            <text x={NODES.xiqing.x} y={NODES.xiqing.y - 8} textAnchor="middle" fontSize="7" fill="#B8AE9A" opacity="0.5" fontFamily="LXGW WenKai, serif">锡庆门</text>
+
+            {/* --- 区域标注 --- */}
+            <text x="200" y="100" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.4" fontFamily="LXGW WenKai, serif">内廷</text>
+            <text x="200" y="200" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.4" fontFamily="LXGW WenKai, serif">外朝</text>
+            <text x="200" y="318" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.45" fontFamily="LXGW WenKai, serif">午门</text>
+            <text x="200" y="24" textAnchor="middle" fontSize="8" fill="#C4BBA8" opacity="0.4" fontFamily="LXGW WenKai, serif">神武门</text>
+
+            {/* --- 所有点位 --- */}
             {Object.entries(SPOT_POS).map(([id, pos]) => {
               const isTarget = id === spotId
               const isCompleted = completed.includes(id)
@@ -174,19 +228,18 @@ export default function Navigate() {
               )
             })}
 
-            {/* --- 入口标记（若从午门出发） --- */}
+            {/* --- 入口标记（午门） --- */}
             {!lastCompleted && (
               <g>
-                <circle cx={ENTRANCE_POS.x} cy={ENTRANCE_POS.y} r={5} fill="#6B6860" />
-                <text x={ENTRANCE_POS.x} y={ENTRANCE_POS.y - 10} textAnchor="middle" fontSize="8" fill="#6B6860" opacity="0.7" fontFamily="LXGW WenKai, serif">入口</text>
+                <circle cx={NODES.entrance.x} cy={NODES.entrance.y} r={5} fill="#6B6860" />
+                <text x={NODES.entrance.x} y={NODES.entrance.y - 10} textAnchor="middle" fontSize="8" fill="#6B6860" opacity="0.7" fontFamily="LXGW WenKai, serif">入口</text>
               </g>
             )}
 
-            {/* --- 路线虚线 --- */}
+            {/* --- 路线（沿真实通道的折线） --- */}
             {routePath && (
               <>
-                <path d={routePath} stroke="#B8923A" strokeWidth="2" strokeDasharray="5 4" opacity="0.5" fill="none" markerEnd="url(#arrow)" />
-                {/* 路线上的行走点动画 */}
+                <path d={routePath} stroke="#B8923A" strokeWidth="2" strokeDasharray="5 4" opacity="0.55" fill="none" markerEnd="url(#arrow)" />
                 <circle r="3" fill="#B8923A" opacity="0.8">
                   <animateMotion dur="2.5s" repeatCount="indefinite" path={routePath} />
                 </circle>
@@ -194,28 +247,31 @@ export default function Navigate() {
             )}
 
             {/* --- 目标点位高亮 --- */}
-            {endPos && (
-              <g>
-                {/* 脉冲环 */}
-                <circle cx={endPos.x} cy={endPos.y} r={10} fill="none" stroke="#A32626" strokeWidth="1" opacity="0.3">
-                  <animate attributeName="r" values="8;16;8" dur="2.5s" repeatCount="indefinite" />
-                  <animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite" />
-                </circle>
-                <circle cx={endPos.x} cy={endPos.y} r={7} fill="#A32626" />
-                <circle cx={endPos.x} cy={endPos.y} r={3} fill="#fff" />
-                <text
-                  x={endPos.x}
-                  y={endPos.y + (endPos.x > 250 ? 18 : -12)}
-                  textAnchor="middle"
-                  fontSize="10"
-                  fill="#A32626"
-                  fontWeight="500"
-                  fontFamily="LXGW WenKai, serif"
-                >
-                  {spot.shortName}
-                </text>
-              </g>
-            )}
+            {(() => {
+              const end = SPOT_POS[spotId]
+              if (!end) return null
+              return (
+                <g>
+                  <circle cx={end.x} cy={end.y} r={12} fill="none" stroke="#A32626" strokeWidth="1" opacity="0.25">
+                    <animate attributeName="r" values="10;18;10" dur="2.5s" repeatCount="indefinite" />
+                    <animate attributeName="opacity" values="0.4;0;0.4" dur="2.5s" repeatCount="indefinite" />
+                  </circle>
+                  <circle cx={end.x} cy={end.y} r={7} fill="#A32626" />
+                  <circle cx={end.x} cy={end.y} r={3} fill="#fff" />
+                  <text
+                    x={end.x}
+                    y={end.y + (end.x > 250 ? 20 : -14)}
+                    textAnchor="middle"
+                    fontSize="10"
+                    fill="#A32626"
+                    fontWeight="500"
+                    fontFamily="LXGW WenKai, serif"
+                  >
+                    {spot.shortName}
+                  </text>
+                </g>
+              )
+            })()}
           </svg>
 
           {/* 距离角标 */}
