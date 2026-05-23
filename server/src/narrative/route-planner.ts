@@ -9,15 +9,18 @@ interface RouteContext {
 export async function planRoute(ctx: RouteContext): Promise<Spot> {
   const { completedSpotIds, allSpots } = ctx
 
-  // Hard constraints
+  // 只选择目的地（cold spots）作为任务目标
   const candidates = allSpots.filter(spot => {
+    if (spot.type !== 'cold') return false
     if (completedSpotIds.has(spot.id)) return false
     if (spot.status === 'paused') return false
     return true
   })
 
   if (candidates.length === 0) {
-    return allSpots[0]
+    // 所有目的地已打卡，返回第一个 cold spot（用于兜底）
+    const coldSpots = allSpots.filter(s => s.type === 'cold')
+    return coldSpots[0] || allSpots[0]
   }
 
   // Sort by priority: targeted > normal > crowded

@@ -1,16 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import TopNav from '../components/TopNav'
-import { getVisitorId } from '../utils/storage'
-
-const SPOT_NAMES: Record<string, string> = {
-  'spot-clock': '钟表馆',
-  'spot-treasure': '珍宝馆',
-  'spot-ceramic': '武英殿·陶瓷馆',
-  'spot-yanxi': '延禧宫',
-  'spot-shoukang': '寿康宫',
-  'spot-cining': '慈宁宫',
-}
+import { getVisitorId, addCompletedSpot } from '../utils/storage'
+import { SPOTS } from '../data/spots'
 
 export default function CheckIn() {
   const navigate = useNavigate()
@@ -18,6 +10,7 @@ export default function CheckIn() {
   const spotId = searchParams.get('spotId')
   const [checking, setChecking] = useState(false)
   const [entered, setEntered] = useState(false)
+  const [stamped, setStamped] = useState(false)
 
   useEffect(() => {
     if (!spotId) {
@@ -32,6 +25,7 @@ export default function CheckIn() {
     const visitorId = getVisitorId()
     if (!visitorId || !spotId) return
     setChecking(true)
+    setStamped(true)
 
     try {
       const res = await fetch('/api/check-in', {
@@ -40,80 +34,83 @@ export default function CheckIn() {
         body: JSON.stringify({ visitorId, spotId }),
       })
       const data = await res.json()
-
-      if (data.rewardUnlocked) {
-        navigate('/reward')
-      } else if (data.completed) {
-        navigate('/complete')
-      } else {
-        navigate('/narrative')
-      }
+      addCompletedSpot(spotId)
+      setTimeout(() => {
+        if (data.rewardUnlocked) {
+          navigate('/reward')
+        } else if (data.completed) {
+          navigate('/complete')
+        } else {
+          navigate('/narrative')
+        }
+      }, 800)
     } catch {
-      setChecking(false)
+      setTimeout(() => navigate('/reward'), 800)
     }
   }
 
-  const spotName = spotId ? (SPOT_NAMES[spotId] || '目标展厅') : '目标展厅'
+  const spot = spotId ? SPOTS[spotId] : undefined
+  const spotName = spot?.name || '目标展厅'
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopNav
-        title="确认到达"
-        showBack
-        onBack={() => navigate('/narrative')}
-      />
+      <TopNav title="到达确认" showBack onBack={() => navigate('/narrative')} />
 
-      <div
-        className={`flex flex-1 flex-col items-center justify-center px-5 transition-all duration-400 ease-out ${
-          entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
-        }`}
-      >
-        {/* Location Icon */}
-        <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-paper-deep">
-          <svg
-            className="h-9 w-9 text-ink-light"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={1.5}
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-            />
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-            />
-          </svg>
+      <div className={`flex flex-1 flex-col items-center justify-center px-6 transition-all duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        {/* Location card */}
+        <div className="w-full max-w-[360px] card-elevated rounded-xl overflow-hidden mb-8">
+          {/* Decorative header */}
+          <div className="bg-gradient-to-b from-paper-deep to-paper h-[80px] border-b border-gold/20 relative">
+            <div className="absolute bottom-3 left-0 right-0 text-center">
+              <p className="text-gold/70 text-[11px] tracking-[0.1em] font-serif uppercase">目标地点</p>
+            </div>
+          </div>
+
+          <div className="p-5 pt-3">
+            <h2 className="font-display text-[22px] text-ink text-center mt-3">
+              {spotName}
+            </h2>
+            {spot?.description && (
+              <p className="text-[13px] text-ink-dim text-center mt-2 leading-[1.6]">
+                {spot.description}
+              </p>
+            )}
+          </div>
         </div>
 
-        <h2 className="mb-3 text-center font-display text-2xl leading-[1.35] tracking-[0.03em] text-ink">
-          你已到达{spotName}
-        </h2>
-        <p className="mb-10 text-center text-base leading-[1.65] text-ink-light">
-          请确认你已在馆内，<br />点击打卡解锁下一段剧情
+        <p className="mb-8 text-center text-[14px] leading-[1.6] text-ink-dim">
+          请确认你已到达该地点，点击下方按钮完成打卡
         </p>
 
-        <div className="w-full max-w-[480px] space-y-3">
+        {/* Seal stamp button */}
+        <div className="relative">
+          {stamped && (
+            <div className="absolute inset-0 flex items-center justify-center z-10 animate-seal-stamp pointer-events-none">
+              <div className="w-28 h-28 rounded-full border-4 border-cinnabar/80 flex items-center justify-center bg-paper/80 backdrop-blur-sm">
+                <span className="text-cinnabar font-display text-2xl tracking-[0.1em]">勘毕</span>
+              </div>
+            </div>
+          )}
           <button
             onClick={handleCheckIn}
-            disabled={checking}
-            className="h-12 w-full rounded-full bg-cinnabar text-base font-medium text-paper transition-transform duration-150 ease-out active:scale-[0.96] disabled:opacity-50"
+            disabled={checking || stamped}
+            className={`h-14 px-12 rounded-full text-[16px] font-medium tracking-[0.06em] transition-all duration-200 ease-out active:scale-[0.96] disabled:opacity-50 ${
+              stamped
+                ? 'bg-transparent border-2 border-cinnabar text-cinnabar'
+                : 'bg-cinnabar text-white hover:shadow-[0_4px_20px_rgba(163,38,38,0.15)]'
+            }`}
           >
-            {checking ? '确认中...' : '确认打卡'}
-          </button>
-
-          <button
-            onClick={() => navigate('/narrative')}
-            disabled={checking}
-            className="h-12 w-full rounded-full border border-cinnabar bg-transparent text-base font-medium text-cinnabar transition-transform duration-150 ease-out active:scale-[0.96]"
-          >
-            我还没到
+            {checking ? '勘验中...' : '勘验打卡'}
           </button>
         </div>
+
+        <button
+          onClick={() => navigate('/narrative')}
+          disabled={checking || stamped}
+          className="mt-4 text-[13px] text-ink-faint hover:text-ink-dim transition-colors"
+        >
+          我还没到
+        </button>
       </div>
     </div>
   )

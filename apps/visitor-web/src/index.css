@@ -19,133 +19,167 @@
   .font-display {
     font-family: 'LXGW WenKai', 'PingFang SC', 'Noto Sans SC', 'Microsoft YaHei', sans-serif;
   }
+
+  .font-serif {
+    font-family: 'Cormorant Garamond', 'LXGW WenKai', serif;
+  }
+
+  .text-gold-shimmer {
+    background: linear-gradient(
+      90deg,
+      #B8923A 0%,
+      #D4AF37 25%,
+      #B8923A 50%,
+      #D4AF37 75%,
+      #B8923A 100%
+    );
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shimmer 2.5s ease-in-out infinite;
+  }
+
+  .paper-texture {
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -10%, rgba(184,146,58,0.04) 0%, transparent 50%);
+  }
+
+  .card-elevated {
+    background: linear-gradient(180deg, #EFEBE1 0%, #F7F4ED 100%);
+    border: 1px solid #D4CFC3;
+    box-shadow:
+      0 1px 2px rgba(43,41,38,0.06),
+      0 4px 12px rgba(43,41,38,0.04),
+      inset 0 1px 0 rgba(255,255,255,0.6);
+  }
+
+  .card-gold-accent {
+    border-top: 1px solid rgba(184,146,58,0.25);
+  }
+
+  .ink-wash-top {
+    background: radial-gradient(ellipse 120% 100% at 50% 0%, rgba(43,41,38,0.06) 0%, transparent 70%);
+  }
+
+  .ink-wash-bottom {
+    background: radial-gradient(ellipse 120% 100% at 50% 100%, rgba(43,41,38,0.04) 0%, transparent 70%);
+  }
+
+  .seal-pressed {
+    box-shadow:
+      inset 1px 1px 2px rgba(43,41,38,0.15),
+      inset -1px -1px 2px rgba(255,255,255,0.4);
+  }
 }
 
-/* Page entrance animation */
+/* Page entrance animations */
 @keyframes pageEnter {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .animate-page-enter {
-  animation: pageEnter 400ms ease-out forwards;
+  animation: pageEnter 500ms ease-out forwards;
 }
 
-/* Card unfold animation */
-@keyframes cardUnfold {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Staggered children fade */
+@keyframes staggerFade {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.animate-card-unfold {
-  animation: cardUnfold 400ms ease-out forwards;
+.animate-stagger > *:nth-child(1) { animation: staggerFade 400ms ease-out 50ms forwards; opacity: 0; }
+.animate-stagger > *:nth-child(2) { animation: staggerFade 400ms ease-out 120ms forwards; opacity: 0; }
+.animate-stagger > *:nth-child(3) { animation: staggerFade 400ms ease-out 190ms forwards; opacity: 0; }
+.animate-stagger > *:nth-child(4) { animation: staggerFade 400ms ease-out 260ms forwards; opacity: 0; }
+.animate-stagger > *:nth-child(5) { animation: staggerFade 400ms ease-out 330ms forwards; opacity: 0; }
+.animate-stagger > *:nth-child(6) { animation: staggerFade 400ms ease-out 400ms forwards; opacity: 0; }
+
+/* Seal stamp */
+@keyframes sealStamp {
+  0% { transform: scale(2) rotate(-15deg); opacity: 0; }
+  60% { transform: scale(0.92) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
 }
 
-/* Success icon pop animation */
-@keyframes iconPop {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+.animate-seal-stamp {
+  animation: sealStamp 600ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
 }
 
-.animate-icon-pop {
-  animation: iconPop 300ms ease-out forwards;
+/* Scroll unfold from center */
+@keyframes scrollUnfold {
+  0% { clip-path: inset(0 50% 0 50%); opacity: 0; }
+  100% { clip-path: inset(0 0% 0 0%); opacity: 1; }
 }
 
-/* Text fade in with delay */
-@keyframes textFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.animate-scroll-unfold {
+  animation: scrollUnfold 700ms ease-out forwards;
 }
 
-.animate-text-fade {
-  animation: textFadeIn 400ms ease-out forwards;
-  animation-delay: 100ms;
-  opacity: 0;
+/* Ink bleed text */
+@keyframes inkBleed {
+  0% { opacity: 0; filter: blur(6px); }
+  100% { opacity: 1; filter: blur(0); }
 }
 
-.animate-text-fade-2 {
-  animation: textFadeIn 400ms ease-out forwards;
-  animation-delay: 200ms;
-  opacity: 0;
+.animate-ink-bleed {
+  animation: inkBleed 800ms ease-out forwards;
 }
 
-/* Card slide up with delay */
-@keyframes cardSlideUp {
-  from {
-    opacity: 0;
-    transform: translateY(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+/* Shimmer for gold text */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
 }
 
-.animate-card-slide-up {
-  animation: cardSlideUp 400ms ease-out forwards;
-  animation-delay: 200ms;
-  opacity: 0;
+/* Float animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
 }
 
-/* Loader dot pulse */
-@keyframes pulse {
-  0%, 80%, 100% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  40% {
-    transform: scale(1.4);
-    opacity: 1;
-  }
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+/* Pulse glow for seals */
+@keyframes sealGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(163,38,38,0); }
+  50% { box-shadow: 0 0 20px 2px rgba(163,38,38,0.12); }
+}
+
+.animate-seal-glow {
+  animation: sealGlow 3s ease-in-out infinite;
+}
+
+/* Loader dots */
+@keyframes loaderPulse {
+  0%, 80%, 100% { transform: scale(1); opacity: 0.4; }
+  40% { transform: scale(1.4); opacity: 1; }
 }
 
 .loader-dot {
-  width: 8px;
-  height: 8px;
-  background: var(--cinnabar, #C13A3A);
+  width: 6px;
+  height: 6px;
+  background: #B8923A;
   border-radius: 50%;
-  animation: pulse 1.2s infinite ease-in-out;
+  animation: loaderPulse 1.4s infinite ease-in-out;
 }
 
-.loader-dot:nth-child(2) {
-  animation-delay: 0.2s;
+.loader-dot:nth-child(2) { animation-delay: 0.2s; }
+.loader-dot:nth-child(3) { animation-delay: 0.4s; }
+
+/* Modal slide-up */
+@keyframes slideUp {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
-.loader-dot:nth-child(3) {
-  animation-delay: 0.4s;
+.animate-slide-up {
+  animation: slideUp 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
-
-/* Hide scrollbar for IE, Edge and Firefox */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
+/* Hide scrollbar */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }

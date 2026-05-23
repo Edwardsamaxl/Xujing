@@ -7,9 +7,7 @@ interface ScrollCardProps {
 export default function ScrollCard({ children, unlocked, className = '' }: ScrollCardProps) {
   return (
     <div
-      className={`rounded-lg bg-paper-deep px-5 py-5 border-y border-scroll-line ${
-        unlocked ? 'border-t-2 border-t-gold' : ''
-      } ${className}`}
+      className={`rounded-xl card-elevated border border-scroll-line px-5 py-5 ${unlocked ? 'card-gold-accent' : ''} ${className}`}
     >
       {children}
     </div>

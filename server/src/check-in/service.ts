@@ -1,36 +1,32 @@
-import { PrismaClient } from '@prisma/client'
-
-const prisma = new PrismaClient()
+import {
+  createCheckIn,
+  getCheckInsByVisitor,
+  getVisitorById,
+  updateVisitorCurrentSpot,
+  markRewardIssued,
+} from '../data'
 
 export async function checkIn(visitorId: string, spotId: string) {
-  const record = await prisma.checkIn.create({
-    data: { visitorId, spotId, method: 'button' },
-  })
+  const record = await createCheckIn(visitorId, spotId, 'button')
 
-  await prisma.visitorSession.update({
-    where: { id: visitorId },
-    data: { currentSpotId: spotId },
-  })
+  await updateVisitorCurrentSpot(visitorId, spotId)
 
-  const visitor = await prisma.visitorSession.findUnique({
-    where: { id: visitorId },
-    include: { campaign: { include: { spots: true } } },
-  })
-  const checkIns = await prisma.checkIn.findMany({ where: { visitorId } })
+  const visitor = await getVisitorById(visitorId)
+  const checkIns = await getCheckInsByVisitor(visitorId)
   const completedSpotIds = new Set(checkIns.map(c => c.spotId))
-  const allSpots = visitor?.campaign.spots || []
-  const allCompleted = allSpots.every(s => completedSpotIds.has(s.id))
+
+  // 只统计目的地（cold spots）是否全部打卡
+  const targetSpots = visitor?.campaign.spots.filter(s => s.type === 'cold') || []
+  const allCompleted = targetSpots.every(s => completedSpotIds.has(s.id))
 
   if (allCompleted && visitor) {
-    await prisma.visitorSession.update({
-      where: { id: visitorId },
-      data: { rewardIssued: true },
-    })
+    await markRewardIssued(visitorId)
   }
 
   return {
     success: true,
     checkInId: record.id,
     rewardUnlocked: allCompleted,
+    completed: allCompleted,
   }
 }

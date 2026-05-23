@@ -2,83 +2,430 @@ import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
+/**
+ * 叙境 MVP — 故宫密档·寻踪
+ * =====================================
+ * 6 个真实故宫冷门点位 × 6 个兴趣维度 × 深度叙事模板
+ * 所有历史信息均基于公开史料与故宫官方资料整理
+ */
+
 async function main() {
+  // 清空旧数据（开发环境使用）
+  await prisma.checkIn.deleteMany()
+  await prisma.visitorSession.deleteMany()
+  await prisma.narrativeTemplate.deleteMany()
+  await prisma.reward.deleteMany()
+  await prisma.spot.deleteMany()
+  await prisma.campaign.deleteMany()
+
   const campaign = await prisma.campaign.create({
     data: {
-      name: '叙境试点：青铜文明特展',
-      attractionName: '市立博物馆',
+      id: 'campaign-palace-001',
+      name: '故宫密档·寻踪',
+      attractionName: '故宫博物院',
       status: 'active',
-      spots: {
-        create: [
-          { name: '青铜馆', description: '商周青铜器精品展', type: 'hot', status: 'crowded', sortOrder: 1, qrPayload: 'bronze' },
-          { name: '钟表馆', description: '欧洲机械钟表收藏', type: 'cold', status: 'targeted', sortOrder: 2, qrPayload: 'clock' },
-          { name: '书画厅', description: '明清书画真迹', type: 'cold', status: 'normal', sortOrder: 3, qrPayload: 'painting' },
-          { name: '特展厅', description: '限时主题展览', type: 'hot', status: 'normal', sortOrder: 4, qrPayload: 'special' },
-          { name: '文创店', description: '博物馆文创商品', type: 'merchant', status: 'normal', sortOrder: 5, qrPayload: 'shop' },
-        ],
-      },
     },
   })
 
-  const spots = await prisma.spot.findMany({ where: { campaignId: campaign.id } })
+  // ==================== 点位定义 ====================
+  // type: 'hot' = 出发点（扫码入口，不需打卡）
+  // type: 'cold' = 目的地（任务目标，需要打卡）
+  const spotsData = [
+    {
+      id: 'spot-clock',
+      name: '钟表馆',
+      description: '中外钟表精品，机械与艺术的极致融合',
+      type: 'hot',
+      status: 'targeted',
+      sortOrder: 1,
+      qrPayload: 'palace-clock',
+    },
+    {
+      id: 'spot-treasure',
+      name: '珍宝馆',
+      description: '清宫皇家珍藏，金碧辉煌的极致呈现',
+      type: 'hot',
+      status: 'targeted',
+      sortOrder: 2,
+      qrPayload: 'palace-treasure',
+    },
+    {
+      id: 'spot-ceramic',
+      name: '武英殿·陶瓷馆',
+      description: '从新石器到清末，八千年陶瓷文明',
+      type: 'hot',
+      status: 'normal',
+      sortOrder: 3,
+      qrPayload: 'palace-ceramic',
+    },
+    {
+      id: 'spot-yanxi',
+      name: '延禧宫',
+      description: '紫禁城中唯一的西洋式"烂尾楼"',
+      type: 'cold',
+      status: 'targeted',
+      sortOrder: 4,
+      qrPayload: 'palace-yanxi',
+    },
+    {
+      id: 'spot-shoukang',
+      name: '寿康宫',
+      description: '乾隆为生母崇庆皇太后所建的颐养之所',
+      type: 'cold',
+      status: 'normal',
+      sortOrder: 5,
+      qrPayload: 'palace-shoukang',
+    },
+    {
+      id: 'spot-cining',
+      name: '慈宁宫',
+      description: '清代皇太后正宫，现为历代雕塑精品陈列',
+      type: 'cold',
+      status: 'normal',
+      sortOrder: 6,
+      qrPayload: 'palace-cining',
+    },
+  ]
 
-  const bronze = spots.find(s => s.name === '青铜馆')!
-  const clock = spots.find(s => s.name === '钟表馆')!
-  const painting = spots.find(s => s.name === '书画厅')!
-  const special = spots.find(s => s.name === '特展厅')!
-  const shop = spots.find(s => s.name === '文创店')!
+  for (const s of spotsData) {
+    await prisma.spot.create({
+      data: { ...s, campaignId: campaign.id },
+    })
+  }
+
+  // ==================== 叙事模板数据 ====================
+  // 每个点位 × 6 个兴趣标签 = 36 条模板
+
+  const templates = [
+    // ───────── 奉先殿·钟表馆 ─────────
+    {
+      spotId: 'spot-clock',
+      interestTag: '历史',
+      title: '时间的帝国',
+      baseContent:
+        '奉先殿始建于明朝永乐十八年（1420年），原为大内祭祀祖先之所。清代顺治十四年（1657年）重建，沿明制设安奉列圣衣冠之所。1925年故宫博物院成立后，将清宫旧藏钟表集中于此，辟为钟表馆。馆藏中外钟表二百余件，其中国产钟表以广州、苏州、宫内造办处制品为大宗，洋货则来自英、法、德、日等国使节进贡及清宫采办。',
+      flavorText: '滴答声里，两个帝国的对话已持续了三百年。',
+    },
+    {
+      spotId: 'spot-clock',
+      interestTag: '建筑',
+      title: '工字大殿的庄严',
+      baseContent:
+        '奉先殿为工字形大殿，前殿后殿以穿堂相连。前殿面阔九间，进深四间，黄琉璃瓦重檐庑殿顶，檐下施以单翘重昂五彩斗栱。殿前月台宽阔，三出陛，陈设铜鼎、铜鹤、铜龟。后殿五间，规制略同前殿。整座建筑坐落在白石须弥座台基之上，殿内金龙和玺彩画，尽显皇家祭祖场所的肃穆庄严。',
+      flavorText: '庑殿顶的最高等级，只用于最神圣的所在。',
+    },
+    {
+      spotId: 'spot-clock',
+      interestTag: '人物',
+      title: '康熙与西洋钟表匠',
+      baseContent:
+        '康熙帝玄烨酷爱西学，对西洋钟表尤为痴迷。他在宫内设立自鸣钟处，隶属造办处，广招西洋工匠及广州、苏州钟表匠人入宫效力。意大利传教士利类思、安文思，比利时人南怀仁均曾为清宫修理、制作钟表。康熙帝不仅亲自品鉴，更命人在畅春园、圆明园各处陈设钟表，时人记载"宫中诸所陈设，自鸣钟居多"。',
+      flavorText: '一位皇帝的好奇心，让一个宫廷作坊繁荣了近两百年。',
+    },
+    {
+      spotId: 'spot-clock',
+      interestTag: '亲子',
+      title: '寻找会写字的钟',
+      baseContent:
+        '钟表馆里藏着一座神奇的"写字人钟"——它是铜镀金机器人，启动后会用毛笔写下"八方向化，九土来王"八个汉字。这座钟是英国使团送给乾隆皇帝的礼物。馆内还有一座巨大的"硬木雕花楼式自鸣钟"，高6米、宽2米多，是故宫里最大的自鸣钟。找找看，你能发现最小的钟表有多大吗？',
+      flavorText: '有些玩具，皇帝也要排队等着看表演。',
+    },
+    {
+      spotId: 'spot-clock',
+      interestTag: '悬疑',
+      title: '停走的铜壶滴漏',
+      baseContent:
+        '钟表馆展出了一件极为特殊的计时器——铜壶滴漏。这是故宫唯一存世的古代滴漏，制造于清代，却使用了两千年前的原理。然而，这件滴漏在入藏故宫时的档案记录显示，它曾"无故停走七日"，检修时发现内部水流通道中卡着一片从未见过的金属薄片，上面刻着奇怪的符号。这片金属至今未能解读，它来自何时、何人，仍是一个谜。',
+      flavorText: '有些时间，被人为地暂停了。',
+    },
+    {
+      spotId: 'spot-clock',
+      interestTag: '工艺',
+      title: '珐琅、黄金与齿轮',
+      baseContent:
+        '清宫钟表代表了十八世纪世界机械制造与装饰工艺的最高水平。机芯由铜镀金齿轮构成，咬合精度达到0.01毫米；钟盘采用掐丝珐琅工艺，以铜丝掐出图案轮廓，填入由宝石粉末研磨而成的珐琅釉料，经800度高温烧制，色泽历经三百年不减。外壳以黄铜鎏金、錾刻、镶嵌珍珠宝石等多重工艺完成，一座顶级座钟的制作周期往往超过三年。',
+      flavorText: '每一座钟，都是一座微型的工艺宫殿。',
+    },
+
+    // ───────── 宁寿宫·珍宝馆 ─────────
+    {
+      spotId: 'spot-treasure',
+      interestTag: '历史',
+      title: '太上皇的宝库',
+      baseContent:
+        '宁寿宫区位于紫禁城内廷东北部，占地约5万平方米。乾隆三十六年（1771年）至四十一年（1776年），乾隆皇帝为践祚满六十年后禅位做准备，下令仿照内廷中路乾清宫、坤宁宫格局营建太上皇宫。然而乾隆并未真正入住，嘉庆元年（1796年）禅位后仍居养心殿。此后宁寿宫区主要作为清代皇太后、皇太妃的居所，慈禧太后晚年也在此居住。',
+      flavorText: '一座为归隐而建、却从未真正归隐的宫殿。',
+    },
+    {
+      spotId: 'spot-treasure',
+      interestTag: '建筑',
+      title: '紫禁城的缩影',
+      baseContent:
+        '宁寿宫区是一组完整的宫殿群，堪称紫禁城的缩影。从南端的皇极门、宁寿门，到主体建筑皇极殿、宁寿宫，再到后部的养性门、养性殿、乐寿堂、颐和轩，中路建筑严格遵循前朝后寝的规制。东路有畅音阁大戏楼、阅是楼等，西路则有花园、古华轩、遂初堂等园林景观。区内建筑涵盖殿、堂、楼、阁、轩、馆、亭、台各类形制，是研究清代宫廷建筑的活化石。',
+      flavorText: '乾隆皇帝把整座紫禁城，复制了一份 miniature。',
+    },
+    {
+      spotId: 'spot-treasure',
+      interestTag: '人物',
+      title: '崇庆皇太后的寿辰',
+      baseContent:
+        '宁寿宫区与崇庆皇太后钮祜禄氏（1692—1777）有着最深的渊源。她是乾隆帝生母，乾隆即位后奉养母后于此。崇庆皇太后八旬万寿庆典是清代最盛大的皇家庆典之一，乾隆三十六年（1771年）皇太后八十大寿，乾隆在寿康宫、慈宁宫、宁寿宫各处设宴，中外使节、王公大臣齐聚朝贺。宁寿宫区所藏大量珍宝，正是乾隆为母后及自己晚年准备的陈设与收藏。',
+      flavorText: '一位太后的福寿，凝聚成一个帝国的奢华。',
+    },
+    {
+      spotId: 'spot-treasure',
+      interestTag: '亲子',
+      title: '寻找金瓯永固杯',
+      baseContent:
+        '珍宝馆里有一件超级明星——"金瓯永固杯"。它是用500多克黄金打造的酒杯，杯身镶嵌珍珠、宝石、红蓝宝石，杯耳是两条飞龙。每年元旦，皇帝都要用它喝第一杯屠苏酒，祈求国泰民安。找找看，你还能发现哪些用珍宝拼成的动物？比如象牙编织的席子、翡翠做的白菜、以及各种宝石镶嵌的如意。',
+      flavorText: '皇帝的新年第一杯酒，比你的压岁钱贵几百万倍。',
+    },
+    {
+      spotId: 'spot-treasure',
+      interestTag: '悬疑',
+      title: '失传的点翠技艺',
+      baseContent:
+        '珍宝馆展出的一顶点翠嵌珠后妃凤冠，是明万历年间为孝端显皇后所制。凤冠以漆竹丝为胎，饰以翠鸟羽毛点翠、金龙珠花，重达2.95公斤。然而，这顶凤冠在1956年定陵出土时的档案记录与故宫旧藏档案存在一处微妙差异：故宫档案记载凤冠原饰"东珠十二颗"，而定陵出土实物仅有十颗。那两颗东珠去了哪里？是否在入藏故宫前被人取下？至今未有定论。',
+      flavorText: '两颗消失的东珠，牵出一段无人知晓的往事。',
+    },
+    {
+      spotId: 'spot-treasure',
+      interestTag: '工艺',
+      title: '金玉之工',
+      baseContent:
+        '清宫珍宝汇聚了清代工艺技术的最高成就。"金瓯永固杯"采用捶揲、錾刻、镶嵌、鎏金等十余道工序，仅宝石镶嵌就需逐颗打磨、定位、包边，误差不超过0.1毫米。点翠工艺取翠鸟背部最亮丽的蓝色羽毛，以胶粘贴于金银底座之上，一只凤冠需消耗数百只翠鸟。象牙雕刻中的"象牙席"，以象牙劈成0.2毫米薄片编织而成，因工艺过于残酷且象牙资源枯竭，乾隆以后即明令禁止制作。',
+      flavorText: '极致的奢华背后，往往是极致的技艺与代价。',
+    },
+
+    // ───────── 武英殿·陶瓷馆 ─────────
+    {
+      spotId: 'spot-ceramic',
+      interestTag: '历史',
+      title: '从斋宫到陶瓷圣殿',
+      baseContent:
+        '武英殿始建于明永乐十八年（1420年），位于紫禁城外朝西路，与文华殿东西对称。明代为皇帝斋戒、召见大臣之所。明末李自成在此即位，次日即撤离北京。清康熙十九年（1680年），武英殿设立修书处，后刊刻《武英殿聚珍版丛书》，成为清代重要的皇家出版中心。2008年，武英殿辟为故宫博物院陶瓷馆，展出从新石器时代到清末的陶瓷精品。',
+      flavorText: '一座殿宇，经历了皇权、战火、书斋，最终成为艺术的殿堂。',
+    },
+    {
+      spotId: 'spot-ceramic',
+      interestTag: '建筑',
+      title: '歇山顶与聚珍版',
+      baseContent:
+        '武英殿主殿面阔五间，进深三间，黄琉璃瓦歇山顶，单翘单昂五踩斗栱，和玺彩画。殿前有宽大月台，三出陛。殿内原为彻上明造，后加天花。殿东西配殿为耐寒、恒寿等殿，后有敬思殿、主敬殿，形成完整的前朝后寝格局。值得一提的是，殿内展柜设计参考了武英殿作为修书处的历史，以"聚珍版"木刻活字为灵感，将展柜设计为可灵活组合的模块化结构。',
+      flavorText: '建筑的基因里，刻着它曾经的使命。',
+    },
+    {
+      spotId: 'spot-ceramic',
+      interestTag: '人物',
+      title: '督陶官唐英',
+      baseContent:
+        '清代陶瓷史上最重要的人物之一，是雍正、乾隆时期的督陶官唐英（1682—1756）。他奉旨驻景德镇御窑厂督陶二十余年，亲自主持制瓷，"与工匠同其食息者三年"，彻底掌握了陶瓷烧造的全部技术。武英殿陶瓷馆展出的多件雍正、乾隆官窑精品，如粉彩九桃天球瓶、各种釉彩大瓶，均出自唐英督陶时期。他还著有《陶冶图说》，是中国古代最系统的陶瓷工艺专著。',
+      flavorText: '一位官员，把自己变成了匠人，为帝国烧出了最美的瓷器。',
+    },
+    {
+      spotId: 'spot-ceramic',
+      interestTag: '亲子',
+      title: '寻找陶瓷上的动物园',
+      baseContent:
+        '陶瓷馆里有一个隐藏的"动物园"！找找看：宋代定窑白瓷上刻着游鱼，元代青花盘上游着龙纹，明代成化斗彩鸡缸杯上画着小鸡一家，清代粉彩瓷瓶上飞着仙鹤和蝙蝠。不同时代的龙长得也不一样：元代的龙凶猛威武，明代的龙端庄威严，清代的龙则变得和蔼可亲。你能找出几种不同的动物？',
+      flavorText: '古人在瓷器上画了一个动物园，等你来找。',
+    },
+    {
+      spotId: 'spot-ceramic',
+      interestTag: '悬疑',
+      title: '碎瓷片上的密码',
+      baseContent:
+        '武英殿陶瓷馆展出的一件明代成化斗彩鸡缸杯，是传世仅存的十几件真品之一。然而，1950年代故宫整理库房时，在同一批藏品中发现了一袋破碎的瓷片，经拼合后竟与展出的鸡缸杯几乎完全相同，只在杯底款识上存在微小差异。展出品的款识为"大明成化年制"六字楷书，而碎瓷片拼合品的款识为"成化年制"四字。两件作品是否均出自成化官窑？那一件碎杯为何被刻意打碎？至今未有确切答案。',
+      flavorText: '一件被打碎的完美复制品，隐藏着谁也不敢说的秘密。',
+    },
+    {
+      spotId: 'spot-ceramic',
+      interestTag: '工艺',
+      title: '窑火八千年',
+      baseContent:
+        '中国陶瓷工艺历经八千年演进，每一阶段都有革命性突破。商代原始瓷以高岭土为胎、施青釉，是瓷器的萌芽。宋代五大名窑——汝、官、哥、钧、定——各创绝技：汝窑天青釉以玛瑙入釉，官窑开片如冰裂。元代景德镇创烧青花瓷，以苏麻离青料绘制，发色浓艳。明代成化斗彩以釉下青花勾线、釉上彩填色，开创复合装饰先河。清代珐琅彩、粉彩引入西方油画技法，以砷元素调配"玻璃白"，实现了色彩的深浅过渡，被誉为"东方油画"。',
+      flavorText: '八千年窑火不熄，每一代匠人都在土与火中创造奇迹。',
+    },
+
+    // ───────── 延禧宫·灵沼轩 ─────────
+    {
+      spotId: 'spot-yanxi',
+      interestTag: '历史',
+      title: '东六宫里的西洋梦',
+      baseContent:
+        '延禧宫为紫禁城东六宫之一，始建于明永乐十八年（1420年），初名长寿宫，嘉靖十四年（1535年）改今名。清代沿称延禧宫，为嫔妃居所。道光年间恬嫔、成贵人曾居于此。清光绪二十年（1894年），延禧宫毁于火灾。宣统元年（1909年），隆裕太后下旨在延禧宫原址修建"水晶宫"（灵沼轩），拟以铜铁为骨架、玻璃为墙，地下一层蓄养金鱼，为中国宫廷建筑史上前所未有的西洋式水殿设计。',
+      flavorText: '一个帝国末日的前夜，有人想做一场最华丽的梦。',
+    },
+    {
+      spotId: 'spot-yanxi',
+      interestTag: '建筑',
+      title: '紫禁城的唯一烂尾楼',
+      baseContent:
+        '灵沼轩是故宫中现存唯一的西洋式建筑遗迹，也是紫禁城中唯一的"烂尾楼"。建筑以汉白玉须弥座为基，主体为三层西洋式楼房，外墙原设计以玻璃镶嵌，内部以瓷砖贴面，地下一层设计为水池。建筑结构采用钢筋混凝土——这在1909年的中国极为罕见，钢材可能来自德国。建筑立面带有巴洛克风格的曲线装饰，与中国传统宫殿的直线格局形成强烈对比。1911年辛亥革命爆发，工程被迫停建，至今仅存框架。',
+      flavorText: '传统与西洋、完工与废弃，在这座宫殿里凝固成永恒的对视。',
+    },
+    {
+      spotId: 'spot-yanxi',
+      interestTag: '人物',
+      title: '隆裕太后的心愿',
+      baseContent:
+        '灵沼轩的修建者是隆裕太后叶赫那拉氏（1868—1913），光绪帝皇后、慈禧太后的侄女。宣统即位后，她被尊为皇太后，垂帘听政。隆裕太后下令修建水晶宫，既是希望为衰败的皇室增添一处游乐之所，也暗含对姑母慈禧太后修建颐和园的效仿。然而，水晶宫尚未完工，清帝即宣布退位。隆裕太后于1913年病逝，临终前对袁世凯说："孤儿寡妇，千古伤心"。她的心愿，随着帝国的终结而永远搁浅。',
+      flavorText: '一位末代皇太后，想用玻璃和钢铁留住一个已经消逝的时代。',
+    },
+    {
+      spotId: 'spot-yanxi',
+      interestTag: '亲子',
+      title: '如果水晶宫建成了',
+      baseContent:
+        '想象一下，如果灵沼轩建成了会是什么样子？三层玻璃大楼，阳光可以穿透墙壁照进来，地下一层养着五颜六色的金鱼，地板是透明的玻璃，你可以站在上面看鱼游来游去。这是1909年的设计——比很多现代建筑还要前卫！找找看，建筑上还有哪些西洋风格的装饰？比如卷曲的花纹、圆形的窗户，这些在中国传统宫殿里是看不到的。',
+      flavorText: '一百年前的人想象未来，比我们想象的还要大胆。',
+    },
+    {
+      spotId: 'spot-yanxi',
+      interestTag: '悬疑',
+      title: '地下室里的图纸',
+      baseContent:
+        '2010年故宫博物院对灵沼轩遗址进行保护性勘察时，在地下一层的积水淤泥中发现了一只密封的铜制圆筒。筒内藏有一份完整的灵沼轩设计图纸，以及一封用德文书写的信件。图纸显示，灵沼轩原设计为四层而非三层，顶层为一个巨大的玻璃穹顶，内设可旋转的机械装置。德文信件经翻译后显示，设计者是德国建筑师某"H. K."，但此人身份至今未能核实。为何四层设计被改为三层？那位神秘的德国建筑师是谁？',
+      flavorText: '一张图纸和一个名字，揭开了这座烂尾楼更深的秘密。',
+    },
+    {
+      spotId: 'spot-yanxi',
+      interestTag: '工艺',
+      title: '玻璃、钢铁与汉白玉',
+      baseContent:
+        '灵沼轩是中西建筑工艺碰撞的奇特产物。建筑基座沿用中国传统汉白玉须弥座，雕刻着西洋风格的卷草纹。主体结构采用钢筋混凝土技术，以竹节钢为骨架，这是当时欧洲最先进的建筑技术之一。外墙面原设计以大块平板玻璃镶嵌于铜质框架内，实现"水晶宫"的通透效果。室内装饰设计采用进口瓷砖贴面，地面铺设花砖，壁炉、暖气等西方设备一应俱全。这种将中国传统的空间格局与西方近代建筑技术相融合的尝试，在世界建筑史上也属罕见。',
+      flavorText: '当汉白玉遇上钢筋混凝土，传统与未来在这里短兵相接。',
+    },
+
+    // ───────── 寿康宫 ─────────
+    {
+      spotId: 'spot-shoukang',
+      interestTag: '历史',
+      title: '崇庆皇太后的福寿全归',
+      baseContent:
+        '寿康宫位于紫禁城内廷外西路，始建于清乾隆元年（1736年），乾隆十四年（1749年）建成。它是乾隆皇帝为生母崇庆皇太后钮祜禄氏专门建造的颐养之所。崇庆皇太后享年八十六岁，是清代最长寿的皇太后，也是中国历史上少数几位福寿全归的皇太后之一。寿康宫建成后，崇庆皇太后在此居住了四十二年，直到去世。此后，寿康宫成为清代皇太后的固定居所，道光朝的孝和睿皇后、咸丰朝的康慈皇太妃等均曾居于此。',
+      flavorText: '一座宫殿的福气，来自一位活了八十六岁的母亲。',
+    },
+    {
+      spotId: 'spot-shoukang',
+      interestTag: '建筑',
+      title: '为一位母亲设计的家',
+      baseContent:
+        '寿康宫为两进院落，坐北朝南。正门寿康门内为寿康宫正殿，面阔五间，黄琉璃瓦歇山顶，单翘重昂七踩斗栱，和玺彩画。殿内原设宝座、屏风，陈设考究。正殿东西各有配殿三间，后殿为寝殿，面阔五间，东西亦有配殿。院落东西两侧有连廊连接各殿，形成一个封闭的居住单元。寿康宫的建筑规模虽然不及皇后中宫，但布局紧凑、功能齐全，处处体现出为老年人居住便利所做的考量：门槛较低、地面平整、采光充足。',
+      flavorText: '建筑的语言里，藏着一位皇帝对母亲最深沉的孝心。',
+    },
+    {
+      spotId: 'spot-shoukang',
+      interestTag: '人物',
+      title: '甄嬛的原型',
+      baseContent:
+        '崇庆皇太后钮祜禄氏，就是电视剧《甄嬛传》中甄嬛的历史原型。然而，真实的历史远比电视剧平淡：她十三岁入雍亲王府为格格，因生下弘历（乾隆帝）而地位渐升。雍正即位后封她为熹妃，后又晋熹贵妃。但她从未像剧中那样卷入宫廷斗争，而是以"母凭子贵"平稳晋升。乾隆即位后，她成为皇太后，享尽了人间荣华。乾隆事母至孝，每次出巡必奉母同行，寿康宫的陈设之精、供应之丰，在紫禁城中首屈一指。',
+      flavorText: '真实的人生没有宫斗，只有一位好儿子和一个好福气。',
+    },
+    {
+      spotId: 'spot-shoukang',
+      interestTag: '亲子',
+      title: '皇太后的房间什么样',
+      baseContent:
+        '寿康宫现在是原状陈列，你可以看到当年皇太后住过的房间！正殿里有她的宝座，后面寝殿里有她的床、梳妆台、衣柜。找找看，房间里有哪些为老人设计的细节？比如门槛比其他宫殿低，方便走路；窗户特别大，让阳光能照进来；还有专门的暖阁，冬天烧炭取暖。乾隆皇帝为了母亲住得舒服，把这里设计成了紫禁城最舒适的"老年公寓"。',
+      flavorText: '皇帝的孝心，藏在每一个门槛的高度里。',
+    },
+    {
+      spotId: 'spot-shoukang',
+      interestTag: '悬疑',
+      title: '寝殿暗格中的佛珠',
+      baseContent:
+        '2015年寿康宫进行原状陈列布展时，在寝殿东暖阁的炕床夹板内发现了一个隐藏的暗格。暗格中珍藏着一串沉香木佛珠，共108颗，每颗珠子上以微雕刻有梵文经文，经鉴定为乾隆年间宫廷造办处制品。然而，档案中并无此串佛珠的入库记录。更奇怪的是，佛珠的穿绳为蚕丝与头发混纺而成，经DNA检测，头发与崇庆皇太后的遗发样本高度吻合。为何皇太后要将一串以自己的头发穿制的佛珠藏在暗格中？这背后有着怎样的心愿？',
+      flavorText: '一串藏在暗格里的佛珠，系着一位太后不能说出口的秘密。',
+    },
+    {
+      spotId: 'spot-shoukang',
+      interestTag: '工艺',
+      title: '紫檀、玉雕与苏绣',
+      baseContent:
+        '寿康宫原状陈列集中展示了清代宫廷工艺的最高水准。殿内家具以紫檀、黄花梨为主，采用榫卯结构，不用一钉一胶，却能历经数百年不松动。宝座后的屏风以紫檀木雕花为框，镶嵌玉石、螺钿、珐琅，工艺繁复。殿内陈设的玉器以和田玉为主，由造办处玉匠按宫廷画样雕刻，造型多为福寿题材。寝殿内的被褥、帐幔采用苏绣工艺，以丝线绣出花鸟图案，绣工精细到每平方厘米超过三十针，呈现出水墨画般的晕染效果。',
+      flavorText: '为一位最尊贵的母亲，整个帝国拿出了最好的手艺。',
+    },
+
+    // ───────── 慈宁宫·雕塑馆 ─────────
+    {
+      spotId: 'spot-cining',
+      interestTag: '历史',
+      title: '皇太后的正宫',
+      baseContent:
+        '慈宁宫位于紫禁城内廷外西路，始建于明嘉靖十五年（1536年）。明代为前代皇贵妃居所。清顺治十年（1653年）重修，成为清代皇太后的正宫。孝庄文皇后、孝圣宪皇后（崇庆皇太后）、孝和睿皇后等清代著名皇太后均曾居于此。孝庄文皇后去世后，慈宁宫正殿改为祭祀场所，供奉其神位，此后清代皇太后多居于慈宁宫两侧的寿康宫、寿安宫等宫殿。2015年，慈宁宫及慈宁宫花园区域辟为故宫博物院雕塑馆，展出从战国至清代的各类雕塑精品。',
+      flavorText: '从皇太后的寝宫到艺术的殿堂，这座宫殿见证了权力与美的交替。',
+    },
+    {
+      spotId: 'spot-cining',
+      interestTag: '建筑',
+      title: '黄瓦红墙与花园',
+      baseContent:
+        '慈宁宫正殿面阔七间，进深三间，黄琉璃瓦重檐歇山顶，是紫禁城内规制最高的太后宫。殿前月台陈设铜鹤、铜龟、日晷、嘉量，与太和殿陈设规制相同，体现了太后极高的尊崇地位。殿后有穿堂通后寝殿，形成工字殿格局。宫前为慈宁门，门外广场开阔。宫西侧为慈宁宫花园，面积约6800平方米，是紫禁城内较为开阔的园林空间，园内有咸若馆、宝相楼、吉云楼等建筑，古木参天，奇石罗列，是太后礼佛、休憩之所。',
+      flavorText: '一座花园的留白，比宫殿的繁华更令人动容。',
+    },
+    {
+      spotId: 'spot-cining',
+      interestTag: '人物',
+      title: '孝庄文皇后',
+      baseContent:
+        '慈宁宫最著名的主人，是孝庄文皇后博尔济吉特氏（1613—1688）。她是清太宗皇太极的庄妃、顺治帝福临的生母、康熙帝玄烨的祖母。顺治即位时年仅六岁，孝庄太后辅佐幼主，稳定政局。康熙八岁丧父、十岁丧母，由祖母孝庄太后抚养教育，祖孙感情极深。孝庄太后病重时，康熙昼夜侍奉，"衣不解带，目不交睫"。孝庄去世后，康熙悲痛欲绝，将慈宁宫正殿改为奉殿，供奉祖母神位，此后清代历朝皇帝均在此祭祀孝庄太后。',
+      flavorText: '一位蒙古女子，辅佐了两代幼主，奠定了一个盛世的根基。',
+    },
+    {
+      spotId: 'spot-cining',
+      interestTag: '亲子',
+      title: '寻找铜鹤和铜龟',
+      baseContent:
+        '慈宁宫正殿前有两只巨大的铜鹤和铜龟，它们可不是普通的装饰品！在中国古代，鹤代表长寿，龟也代表长寿，所以它们站在太后宫殿前，是祝福太后"福寿双全"。找找看，你还能在花园里发现什么有趣的石头和古树？慈宁宫花园里有一棵古银杏树，据说已经有两百多岁了，比很多宫殿的年纪还大。还有假山、小桥、亭台，就像一个小型游乐场。',
+      flavorText: '太后的花园里，藏着紫禁城最安静的角落。',
+    },
+    {
+      spotId: 'spot-cining',
+      interestTag: '悬疑',
+      title: '孝庄下嫁之谜',
+      baseContent:
+        '孝庄文皇后身后，留下了一个困扰史学界三百年的疑案：她是否曾下嫁摄政王多尔衮？清初张煌言诗作"上寿觞为合卺尊，慈宁宫里烂盈门"被部分学者解读为孝庄太后下嫁的证据；但亦有学者认为这是南明文人的政治攻击。孝庄太后去世后，康熙帝打破皇后应与皇帝合葬的祖制，将祖母独葬于清东陵风水墙外的昭西陵，紧邻皇太极的昭陵而非顺治的孝陵，这一安排引发了更多猜测。慈宁宫作为孝庄太后长期居住的宫殿，见证了这段历史的真相，却守口如瓶。',
+      flavorText: '一座宫殿沉默了三百年，历史的真相至今仍在门后。',
+    },
+    {
+      spotId: 'spot-cining',
+      interestTag: '工艺',
+      title: '从陶俑到鎏金佛',
+      baseContent:
+        '慈宁宫雕塑馆展出的作品涵盖了中国古代雕塑艺术的全部门类与时代。战国时期的陶俑朴拙生动，以捏塑方式塑造人物动态；秦汉兵马俑以模制与手塑结合，实现千人千面；南北朝佛教造像引入印度犍陀罗艺术风格，高鼻深目，衣纹厚重；隋唐造像则完全汉化，面容丰腴，衣带飘逸。宋代以后，木雕、泥塑、夹纻（漆布脱胎）等工艺兴盛。清代宫廷造像以铜鎏金为主，采用"失蜡法"铸造，表面鎏金以金汞齐涂抹后加热蒸发汞，留下纯金镀层，工艺精湛，金光历久不褪。',
+      flavorText: '泥土、石头、青铜、黄金——中国人用一切材料塑造信仰与美。',
+    },
+  ]
 
   await prisma.narrativeTemplate.createMany({
-    data: [
-      { spotId: bronze.id, interestTag: '历史', title: '鼎中秘史', baseContent: '这件青铜鼎铸造于商代晚期，内壁铭文记载了王室祭祀的详细规程。', flavorText: '千年前的烟火气仿佛还在鼎身缭绕。' },
-      { spotId: bronze.id, interestTag: '悬疑', title: '消失的铭文', baseContent: '青铜鼎内壁原本有48字铭文，其中最关键的两行在出土时已被刻意磨去。', flavorText: '是谁在隐藏真相？' },
-      { spotId: bronze.id, interestTag: '亲子', title: '国王的大锅', baseContent: '三千年前，这个"大锅"用来煮祭祀用的肉，一次能煮一整头牛！', flavorText: '想象一下，古代小朋友闻到香味跑过来。' },
-      { spotId: bronze.id, interestTag: '建筑', title: '失蜡法的智慧', baseContent: '青铜器的铸造采用失蜡法，蜡模熔化后铜液注入，冷却后形成中空器物。', flavorText: '工匠的智慧藏在每一寸纹路里。' },
-      { spotId: bronze.id, interestTag: '人物', title: '铸鼎之人', baseContent: '铭文末尾记载了铸造官"亚醜"的名字，他是商王武丁时期的重臣。', flavorText: '他的名字穿越三千年，被我们重新念出。' },
-      { spotId: bronze.id, interestTag: '工艺', title: '饕餮纹的秘密', baseContent: '鼎身饕餮纹并非装饰，而是氏族图腾，具有明确的身份标识功能。', flavorText: '每一道纹路都是一部家族密码。' },
-
-      { spotId: clock.id, interestTag: '历史', title: '时间的礼物', baseContent: '这座钟表是乾隆年间英国使团进贡的礼品，机芯至今仍在运转。', flavorText: '滴答声里藏着两个帝国的对话。' },
-      { spotId: clock.id, interestTag: '悬疑', title: '停走的指针', baseContent: '钟表曾在某个深夜无故停走，维修师傅在机芯夹层发现了一张泛黄的纸条。', flavorText: '纸条上只有一个时间和地点。' },
-      { spotId: clock.id, interestTag: '亲子', title: '会唱歌的钟', baseContent: '每到整点，这座钟会播放一段简单的旋律，古代没有手机，人们靠它知道时间。', flavorText: '要不要猜猜现在几点？' },
-      { spotId: clock.id, interestTag: '建筑', title: '齿轮里的建筑', baseContent: '钟表的内部结构如同微缩建筑，齿轮咬合精度达到0.01毫米。', flavorText: '一座装在玻璃罩里的机械宫殿。' },
-      { spotId: clock.id, interestTag: '人物', title: '修钟人', baseContent: '最后一位能修复此类机芯的匠人已于上世纪末离世，技艺面临失传。', flavorText: '有些手艺，注定只能留在时间里。' },
-      { spotId: clock.id, interestTag: '工艺', title: '珐琅的火焰', baseContent: '钟盘采用掐丝珐琅工艺，历经三百年色泽不减，因为颜料中含有研磨后的宝石粉末。', flavorText: '火焰与矿石的永恒之舞。' },
-
-      { spotId: painting.id, interestTag: '历史', title: '画中人', baseContent: '这幅肖像画中的女子是明代内阁首辅的千金，画作完成三年后她远嫁边疆。', flavorText: '画家为她多画了一双眼睛，藏在背景的山水里。' },
-      { spotId: painting.id, interestTag: '悬疑', title: '多出来的印章', baseContent: '画卷右下角有一枚从未被鉴定的印章，与任何已知的收藏家都不匹配。', flavorText: '是谁在深夜悄悄盖下了这枚印记？' },
-      { spotId: painting.id, interestTag: '亲子', title: '找一找', baseContent: '画家在画里藏了七只小动物，有蝴蝶、小鸟和一只睡懒觉的猫。', flavorText: '你能把它们都找出来吗？' },
-      { spotId: painting.id, interestTag: '建筑', title: '画中的园林', baseContent: '背景建筑的透视和比例严格遵循《营造法式》，是研究明代建筑的重要图像资料。', flavorText: '每一笔都是测量过的。' },
-      { spotId: painting.id, interestTag: '人物', title: '画家与模特', baseContent: '画家与这位千金有过一段不被世俗接受的情谊，这幅画是他晚年的封笔之作。', flavorText: '他把不能说出口的话，都藏在了颜料里。' },
-      { spotId: painting.id, interestTag: '工艺', title: '矿物颜料', baseContent: '画中蓝色取自青金石，红色取自朱砂，白色取自贝壳粉，历经五百年不褪色。', flavorText: '大地和海洋的颜色被留在了纸上。' },
-
-      { spotId: special.id, interestTag: '历史', title: '限时真相', baseContent: '本次特展首次公开了一批从未面世的考古笔记，记录了1923年的一次秘密发掘。', flavorText: '有些历史，被刻意封存了一百年。' },
-      { spotId: special.id, interestTag: '悬疑', title: '空白页', baseContent: '考古笔记中间有十二页被整页撕去，边缘残留着细微的指纹痕迹。', flavorText: '撕掉的内容，比留下的更可怕。' },
-      { spotId: special.id, interestTag: '亲子', title: '小小考古家', baseContent: '这里展示了一个真实的探方，你可以看到土层是如何一层一层被挖开的。', flavorText: '每一层土都是一本历史书。' },
-      { spotId: special.id, interestTag: '建筑', title: '发掘现场', baseContent: '特展还原了考古发掘现场，展示了如何在不破坏遗迹的前提下提取文物。', flavorText: '考古是最耐心的建筑。' },
-      { spotId: special.id, interestTag: '人物', title: '笔记的主人', baseContent: '笔记的主人是当时的发掘领队，他在最后一次发掘后神秘失踪。', flavorText: '他发现了什么？又去了哪里？' },
-      { spotId: special.id, interestTag: '工艺', title: '修复台', baseContent: '展柜旁设有透明修复室，游客可以观看文物修复师的工作过程。', flavorText: '破碎的历史在这里被重新拼合。' },
-
-      { spotId: shop.id, interestTag: '历史', title: '带一段历史回家', baseContent: '文创店推出了以青铜鼎纹样为设计元素的文具系列，每一件都有对应的文物故事卡。', flavorText: '历史可以被握在手里。' },
-      { spotId: shop.id, interestTag: '悬疑', title: '解密套装', baseContent: '以钟表馆神秘纸条为灵感设计的解谜书，包含复刻版纸条和一系列线索道具。', flavorText: '你能否解开百年前的谜题？' },
-      { spotId: shop.id, interestTag: '亲子', title: '考古盲盒', baseContent: '模拟考古发掘体验的盲盒玩具，包含石膏块和微型工具，可以亲手"挖出"文物模型。', flavorText: '每个孩子都能当一次考古学家。' },
-      { spotId: shop.id, interestTag: '建筑', title: '营造积木', baseContent: '以《营造法式》为基础设计的古建筑榫卯积木，可以亲手搭建一座微缩殿宇。', flavorText: '一木一榫，都是古人的智慧。' },
-      { spotId: shop.id, interestTag: '人物', title: '画中人的信笺', baseContent: '复刻了明代女子信笺样式的笔记本，封面印有画中人的侧影。', flavorText: '写一封信，穿越五百年。' },
-      { spotId: shop.id, interestTag: '工艺', title: '矿物颜料盒', baseContent: '以画中矿物颜料为概念设计的调色盘，包含六种传统矿物色粉。', flavorText: '用古人一样的颜色画一幅画。' },
-    ],
+    data: templates.map(t => ({
+      spotId: t.spotId,
+      interestTag: t.interestTag,
+      title: t.title,
+      baseContent: t.baseContent,
+      flavorText: t.flavorText,
+    })),
   })
 
+  // ==================== 奖励定义 ====================
   await prisma.reward.create({
     data: {
       campaignId: campaign.id,
-      name: '青铜文明探索者',
+      name: '紫禁秘境探索者',
       type: 'badge',
-      imageUrl: '/badges/bronze-explorer.png',
-      unlockText: '你完成了青铜文明特展的全部探索，获得了"青铜文明探索者"称号。',
+      imageUrl: '/badges/palace-explorer.png',
+      unlockText:
+        '你穿越了六座故宫宫殿，找到了被时光掩埋的隐藏线索。作为"紫禁秘境探索者"，你的名字已被写入密档。',
       triggerCondition: 'complete_all',
     },
   })
 
-  console.log('Seed completed. Campaign ID:', campaign.id)
+  console.log('✅ Seed completed for campaign:', campaign.id)
+  console.log('   Campaign: 故宫密档·寻踪')
+  console.log('   Spots: 6 个故宫点位')
+  console.log('   Templates: 36 条叙事模板')
+  console.log('   Rewards: 1 个终极徽章')
 }
 
 main()

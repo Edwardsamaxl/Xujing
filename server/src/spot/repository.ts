@@ -1,10 +1,3 @@
-import { PrismaClient } from '@prisma/client'
+import { getSpotsByCampaign, getSpotById } from '../data/spot'
 
-const prisma = new PrismaClient()
-
-export async function getSpotsByCampaign(campaignId: string) {
-  return prisma.spot.findMany({
-    where: { campaignId },
-    orderBy: { sortOrder: 'asc' },
-  })
-}
+export { getSpotsByCampaign, getSpotById }

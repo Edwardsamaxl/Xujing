@@ -5,22 +5,22 @@ interface ProgressNodeProps {
 
 export default function ProgressNode({ total, current }: ProgressNodeProps) {
   return (
-    <div className="flex items-center justify-center gap-0 py-4">
+    <div className="flex items-center justify-center gap-1 py-5">
       {Array.from({ length: total }).map((_, i) => (
         <div key={i} className="flex items-center">
           <div
-            className={`rounded-full transition-all duration-400 ${
+            className={`rounded-full transition-all duration-500 ${
               i < current
-                ? 'h-[10px] w-[10px] bg-bamboo'
+                ? 'h-[10px] w-[10px] bg-cinnabar'
                 : i === current
-                ? 'h-3 w-3 bg-cinnabar ring-1 ring-cinnabar'
-                : 'h-[10px] w-[10px] border border-scroll-line bg-transparent'
+                ? 'h-[10px] w-[10px] bg-cinnabar ring-4 ring-cinnabar-light'
+                : 'h-[8px] w-[8px] bg-scroll-line'
             }`}
           />
           {i < total - 1 && (
             <div
-              className={`w-6 h-px mx-1 ${
-                i < current ? 'bg-bamboo' : 'border-t border-dashed border-scroll-line'
+              className={`w-8 h-px mx-1.5 ${
+                i < current ? 'bg-scroll-line' : 'bg-scroll-line/40'
               }`}
             />
           )}
