@@ -2,9 +2,10 @@ interface TopNavProps {
   title: string
   showBack?: boolean
   onBack?: () => void
+  rightAction?: React.ReactNode
 }
 
-export default function TopNav({ title, showBack, onBack }: TopNavProps) {
+export default function TopNav({ title, showBack, onBack, rightAction }: TopNavProps) {
   return (
     <div className="sticky top-0 z-50 flex h-14 items-center justify-center border-b border-scroll-line/50 bg-paper/80 backdrop-blur-md px-5">
       {showBack && (
@@ -19,6 +20,11 @@ export default function TopNav({ title, showBack, onBack }: TopNavProps) {
         </button>
       )}
       <span className="text-[16px] font-medium tracking-[0.08em] text-ink uppercase font-display">{title}</span>
+      {rightAction && (
+        <div className="absolute right-4">
+          {rightAction}
+        </div>
+      )}
     </div>
   )
 }

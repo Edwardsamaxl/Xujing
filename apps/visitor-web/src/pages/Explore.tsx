@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
-import { SPOTS, getAllSpots, getCrowdLevel, getEdge, getSpotById } from '../data/spots'
+import TopNav from '../components/TopNav'
+import { getAllSpots, getCrowdLevel, getEdge, getSpotById } from '../data/spots'
 import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag, getVisitorId } from '../utils/storage'
 import { getRemainingSpots, getRandomUnexploredSpot } from '../utils/route-planner'
 import { fetchRecommendation, type RecommendResult } from '../api/recommend'
@@ -167,20 +168,22 @@ export default function Explore() {
   }
 
   return (
-    <div className={`flex min-h-screen flex-col px-5 pt-10 pb-8 transition-[opacity,transform] duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
-      <div className="mx-auto w-full max-w-[400px]">
-        {/* Header */}
-        <div className="mb-6">
-          <p className="text-[11px] text-gold tracking-[0.1em] font-serif uppercase mb-2">Explore · 秘辛地图</p>
-          <h1 className="font-display text-[28px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
-            选关中枢
-          </h1>
-          <p className="text-[12px] text-ink-dim leading-[1.6]">
-            {remaining.length === 0
-              ? '全部点位已勘验，可前往结案'
-              : `剩余 ${remaining.length} 处未探索 · 点击卡片开始勘验`}
-          </p>
-        </div>
+    <div className="flex min-h-screen flex-col">
+      <TopNav title="选关中枢" showBack onBack={() => navigate('/interest')} />
+      <div className={`flex-1 flex flex-col px-5 pt-6 pb-8 transition-[opacity,transform] duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+        <div className="mx-auto w-full max-w-[400px]">
+          {/* Header */}
+          <div className="mb-6">
+            <p className="text-[11px] text-gold tracking-[0.1em] font-serif uppercase mb-2">Explore · 秘辛地图</p>
+            <h1 className="font-display text-[28px] leading-[1.3] tracking-[0.04em] text-ink mb-2">
+              选关中枢
+            </h1>
+            <p className="text-[12px] text-ink-dim leading-[1.6]">
+              {remaining.length === 0
+                ? '全部点位已勘验，可前往结案'
+                : `剩余 ${remaining.length} 处未探索 · 点击卡片开始勘验`}
+            </p>
+          </div>
 
         {/* Weak recommendation */}
         {effectiveRecommendation && remaining.length > 0 && (
@@ -360,5 +363,6 @@ export default function Explore() {
         )}
       </div>
     </div>
+  </div>
   )
 }

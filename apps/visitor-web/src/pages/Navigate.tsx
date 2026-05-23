@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useEffect, useState, useMemo } from 'react'
+import TopNav from '../components/TopNav'
 import { SPOTS, getCrowdLevel } from '../data/spots'
 import { addCompletedSpot, unlockNarrative, setCurrentTarget, getCompletedSpots } from '../utils/storage'
 import { getRouteTo } from '../utils/route-planner'
@@ -114,14 +115,17 @@ export default function Navigate() {
 
   if (!spotId || !SPOTS[spotId]) {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-6">
-        <p className="text-ink-dim mb-4">未选择目标地点</p>
-        <button
-          onClick={() => navigate('/explore')}
-          className="h-12 px-8 rounded-full bg-cinnabar text-paper text-base font-medium transition-transform active:scale-[0.96]"
-        >
-          返回秘辛地图
-        </button>
+      <div className="flex min-h-screen flex-col">
+        <TopNav title="路线引导" showBack onBack={() => navigate('/explore')} />
+        <div className="flex-1 flex flex-col items-center justify-center px-6">
+          <p className="text-ink-dim mb-4">未选择目标地点</p>
+          <button
+            onClick={() => navigate('/explore')}
+            className="h-12 px-8 rounded-full bg-cinnabar text-paper text-base font-medium transition-transform active:scale-[0.96]"
+          >
+            返回秘辛地图
+          </button>
+        </div>
       </div>
     )
   }
@@ -149,8 +153,9 @@ export default function Navigate() {
 
   return (
     <div className="flex min-h-screen flex-col">
+      <TopNav title="路线引导" showBack onBack={() => navigate('/explore')} />
       <div
-        className={`flex-1 flex flex-col px-5 pt-8 pb-6 transition-[opacity,transform] duration-500 ease-out ${
+        className={`flex-1 flex flex-col px-5 pt-6 pb-6 transition-[opacity,transform] duration-500 ease-out ${
           entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
         }`}
       >

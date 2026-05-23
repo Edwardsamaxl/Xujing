@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toPng } from 'html-to-image'
+import TopNav from '../components/TopNav'
 import {
   getVisitorId,
   clearVisitor,
@@ -164,8 +165,9 @@ export default function Complete() {
 
   return (
     <div className="min-h-screen bg-paper pb-8">
+      <TopNav title="勘验完成" showBack onBack={() => navigate(-1)} />
       <div
-        className={`mx-auto w-full max-w-[480px] px-5 pt-10 transition-[opacity,transform] duration-500 ease-out ${
+        className={`mx-auto w-full max-w-[480px] px-5 pt-6 transition-[opacity,transform] duration-500 ease-out ${
           entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
         }`}
       >

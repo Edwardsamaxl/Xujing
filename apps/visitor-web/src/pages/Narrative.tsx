@@ -148,10 +148,6 @@ export default function Narrative() {
     return () => clearInterval(interval)
   }, [narrativeData, template])
 
-  // 当前真实展示的剧情文本（优先 AI 生成，回退到本地模板）
-  const displayedNarrativeText =
-    narrativeData?.narrativeText || template?.baseContent || ''
-
   useEffect(() => {
     tts.cancel()
     setShowReply(false)
@@ -281,20 +277,22 @@ export default function Narrative() {
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      <TopNav title={spot.shortName} showBack onBack={() => navigate('/explore')} />
-
-      {/* Archive button */}
-      <div className="sticky top-14 z-40 flex justify-end px-5 py-2 bg-paper/80 backdrop-blur-md border-b border-scroll-line/30">
-        <button
-          onClick={() => setShowArchive(true)}
-          className="flex items-center gap-1.5 text-[12px] text-gold tracking-[0.04em] px-3 h-10 rounded-full border border-gold/30 hover:bg-gold/5 transition-[background-color,opacity]"
-        >
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
-          </svg>
-          密档
-        </button>
-      </div>
+      <TopNav
+        title={spot.shortName}
+        showBack
+        onBack={() => navigate(-1)}
+        rightAction={
+          <button
+            onClick={() => setShowArchive(true)}
+            className="flex items-center gap-1.5 text-[12px] text-gold tracking-[0.04em] px-3 h-9 rounded-full border border-gold/30 hover:bg-gold/5 transition-[background-color,opacity]"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
+            </svg>
+            密档
+          </button>
+        }
+      />
 
       <div className="flex-1 flex flex-col">
         {/* Top: Narrative area ~50% */}
