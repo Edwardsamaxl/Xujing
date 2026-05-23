@@ -148,7 +148,7 @@ export default function Explore() {
         </div>
 
         {/* Weak recommendation */}
-        {recommendation && remaining.length > 0 && (
+        {recommendation && remaining.length > 0 && !completedSet.has(recommendation.spotId) && (
           <div className="mb-4 p-3 rounded-lg bg-paper-deep border border-gold/20 flex items-start gap-3">
             <div className="w-1.5 h-1.5 rounded-full bg-gold animate-pulse flex-shrink-0 mt-1.5" />
             <div className="flex-1 min-w-0">

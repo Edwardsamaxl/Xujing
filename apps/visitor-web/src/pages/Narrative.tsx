@@ -175,6 +175,13 @@ export default function Narrative() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sr.finalText])
 
+  function handleSubmitText() {
+    const q = textInput.trim()
+    if (!q) return
+    setTextInput('')
+    void handleAsk(q)
+  }
+
   async function handleAsk(question: string) {
     const visitorId = getVisitorId()
     if (!visitorId) {
@@ -318,7 +325,7 @@ export default function Narrative() {
                   <button
                     type="button"
                     onClick={handleToggleNarrativeTts}
-                    className="mt-4 flex items-center gap-2 px-2 h-10 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"}  ,replace_all:false}  ,{
+                    className="mt-4 flex items-center gap-2 px-2 h-10 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"
                     aria-label={speakingTarget === 'narrative' && tts.speaking ? '暂停朗读' : '朗读剧情'}
                   >
                     <div className="flex items-center gap-0.5">
