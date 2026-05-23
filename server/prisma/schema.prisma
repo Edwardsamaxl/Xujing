@@ -1,0 +1,88 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Campaign {
+  id             String   @id @default(cuid())
+  name           String
+  attractionName String   @map("attraction_name")
+  status         String   @default("draft") // draft, active, archived
+  spots          Spot[]
+  rewards        Reward[]
+  sessions       VisitorSession[]
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@map("campaigns")
+}
+
+model Spot {
+  id          String   @id @default(cuid())
+  campaignId  String   @map("campaign_id")
+  campaign    Campaign @relation(fields: [campaignId], references: [id])
+  name        String
+  description String?
+  type        String   // 'hot', 'cold', 'merchant', 'entrance'
+  status      String   @default("normal") // normal, crowded, paused, targeted
+  sortOrder   Int      @default(0) @map("sort_order")
+  qrPayload   String?  @map("qr_payload")
+  checkIns    CheckIn[]
+  templates   NarrativeTemplate[]
+
+  @@map("spots")
+}
+
+model NarrativeTemplate {
+  id          String @id @default(cuid())
+  spotId      String @map("spot_id")
+  spot        Spot   @relation(fields: [spotId], references: [id])
+  interestTag String @map("interest_tag")
+  title       String
+  baseContent String @map("base_content") @db.Text
+  flavorText  String? @map("flavor_text") @db.Text
+
+  @@unique([spotId, interestTag])
+  @@map("narrative_templates")
+}
+
+model VisitorSession {
+  id           String    @id @default(cuid())
+  campaignId   String    @map("campaign_id")
+  campaign     Campaign  @relation(fields: [campaignId], references: [id])
+  interestTags String[]  @map("interest_tags")
+  currentSpotId String?  @map("current_spot_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  checkIns     CheckIn[]
+  rewardIssued Boolean   @default(false) @map("reward_issued")
+
+  @@map("visitor_sessions")
+}
+
+model CheckIn {
+  id        String         @id @default(cuid())
+  visitorId String         @map("visitor_id")
+  visitor   VisitorSession @relation(fields: [visitorId], references: [id])
+  spotId    String         @map("spot_id")
+  spot      Spot           @relation(fields: [spotId], references: [id])
+  method    String         @default("button") // button (MVP), qr_code, location
+  createdAt DateTime       @default(now()) @map("created_at")
+
+  @@map("check_ins")
+}
+
+model Reward {
+  id               String   @id @default(cuid())
+  campaignId       String   @map("campaign_id")
+  campaign         Campaign @relation(fields: [campaignId], references: [id])
+  name             String
+  type             String   // 'badge', 'souvenir'
+  imageUrl         String?  @map("image_url")
+  unlockText       String   @map("unlock_text")
+  triggerCondition String   @default("complete_all") @map("trigger_condition")
+
+  @@map("rewards")
+}
