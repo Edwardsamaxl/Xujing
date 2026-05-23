@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import Narrative from './Narrative'
-import { renderWithRouter, expectLocation, mockLocalStorage } from '../test/utils'
+import { renderWithRouter, expectLocation, mockFetch, mockLocalStorage } from '../test/utils'
 
 describe('Narrative', () => {
   it('redirects to / when no visitorId', async () => {
@@ -14,10 +14,11 @@ describe('Narrative', () => {
 
   it('renders narrative content for the spot and interest tag', async () => {
     mockLocalStorage('v-1', '历史')
+    mockFetch({ narrativeTitle: '钟表馆', narrativeText: '测试叙事内容' })
     renderWithRouter(<Narrative />, { initialEntries: ['/narrative?spotId=spot-clock'] })
 
     await waitFor(() => expect(screen.getByRole('heading', { name: '钟表馆' })).toBeInTheDocument())
-    expect(screen.getByText('AI 语音讲解中...')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByText('测试叙事内容')).toBeInTheDocument())
   })
 
   it('navigates to navigate page on next spot button', async () => {

@@ -10,7 +10,7 @@ describe('Explore', () => {
     renderWithRouter(<Explore />)
 
     await waitFor(() => expect(screen.getByText('选关中枢')).toBeInTheDocument())
-    expect(screen.getByText('钟表馆')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '钟表馆' })).toBeInTheDocument()
     expect(screen.getByText('珍宝馆')).toBeInTheDocument()
 
     await userEvent.click(screen.getByText('延禧宫'))

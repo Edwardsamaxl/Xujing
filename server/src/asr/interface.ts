@@ -2,6 +2,7 @@ import { Router } from 'express'
 import multer from 'multer'
 import ffmpegStaticPath from 'ffmpeg-static'
 import { execSync, spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { transcribePcm } from './baidu'
 
 /**
@@ -9,17 +10,28 @@ import { transcribePcm } from './baidu'
  *
  * 优先顺序：
  *   1. 环境变量 FFMPEG_PATH（部署可覆盖）
- *   2. 系统 PATH 上的 ffmpeg（macOS brew、Linux apt 等，已签名/已授权）
- *   3. ffmpeg-static 包内置二进制（兜底，部分系统会被 Gatekeeper 拦截）
+ *   2. 系统 PATH 上的 ffmpeg（验证文件真实存在）
+ *   3. ffmpeg-static 包内置二进制（验证文件真实存在）
+ *   4. 直接回退到 'ffmpeg'（依赖系统 PATH）
  */
 function resolveFfmpegPath(): string {
   if (process.env.FFMPEG_PATH) return process.env.FFMPEG_PATH
+
+  // 跨平台查找系统 ffmpeg（Windows 用 where，Unix 用 command -v）
+  const isWin = process.platform === 'win32'
+  const cmd = isWin ? 'where ffmpeg' : 'command -v ffmpeg'
   try {
-    return execSync('command -v ffmpeg', { encoding: 'utf8' }).trim() || ''
+    const found = execSync(cmd, { encoding: 'utf8' }).trim().split('\n')[0]
+    if (found && existsSync(found)) return found
   } catch {
     // 系统 PATH 没有
   }
-  return (ffmpegStaticPath as unknown as string) || 'ffmpeg'
+
+  // ffmpeg-static 兜底（验证文件真实存在，install 脚本被跳过时可能缺失）
+  const staticPath = (ffmpegStaticPath as unknown as string) || ''
+  if (staticPath && existsSync(staticPath)) return staticPath
+
+  return 'ffmpeg'
 }
 
 const FFMPEG_BIN = resolveFfmpegPath()

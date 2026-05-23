@@ -121,6 +121,15 @@ const CARD_ART: Record<
   },
 }
 
+const INTEREST_CARD_BACKGROUNDS: Record<string, string> = {
+  历史: '/assets/explore/history/history-card.png',
+  建筑: '/assets/explore/architecture/architecture-card.png',
+  人物: '/assets/explore/figure/figure-card.png',
+  亲子: '/assets/explore/family/family-card.png',
+  悬疑: '/assets/explore/mystery/mystery-card.png',
+  工艺: '/assets/explore/craft/craft-card.png',
+}
+
 export default function Explore() {
   const navigate = useNavigate()
   const [entered, setEntered] = useState(false)
@@ -214,7 +223,7 @@ export default function Explore() {
                 {/* Background painting — scaled to crop white border */}
                 <div className="absolute inset-0 overflow-hidden">
                   <img
-                    src={art.backgrounds[interestTag] || art.backgrounds['历史']}
+                    src={INTEREST_CARD_BACKGROUNDS[interestTag] || art.backgrounds[interestTag] || art.backgrounds['历史']}
                     alt=""
                     className="h-full w-full object-cover object-right"
                     style={{ transform: 'scale(1.06)', opacity: status === 'completed' ? 0.5 : 0.9 }}

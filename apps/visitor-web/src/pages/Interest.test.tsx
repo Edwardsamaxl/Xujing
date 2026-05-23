@@ -18,7 +18,7 @@ describe('Interest', () => {
       '/api/visitor/session',
       expect.objectContaining({
         method: 'POST',
-        body: JSON.stringify({ campaignId: 'demo', interestTags: ['历史'] }),
+        body: JSON.stringify({ campaignId: 'campaign-palace-001', interestTags: ['历史'] }),
       })
     ))
 

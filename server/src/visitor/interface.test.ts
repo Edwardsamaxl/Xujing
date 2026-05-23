@@ -5,6 +5,10 @@ import { prisma } from '../data/prisma'
 
 vi.mock('../data/prisma', () => ({
   prisma: {
+    campaign: {
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+    },
     visitorSession: {
       create: vi.fn(),
     },
@@ -14,6 +18,7 @@ vi.mock('../data/prisma', () => ({
 describe('POST /api/visitor/session', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    ;(prisma.campaign.findUnique as any).mockResolvedValue({ id: 'demo', name: 'Test Campaign' })
   })
 
   it('creates a session with valid input', async () => {

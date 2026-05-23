@@ -13,7 +13,7 @@ describe('Start', () => {
       timeout: 3000,
     })
     expect(screen.getByText('历史的每一块青砖，都在等待精确的解读。')).toBeInTheDocument()
-    expect(screen.getByLabelText('落印，开启勘验')).toBeInTheDocument()
+    expect(screen.getByLabelText('开始探索')).toBeInTheDocument()
   })
 
   it('navigates to /interest on enter click', async () => {
@@ -25,7 +25,7 @@ describe('Start', () => {
       { timeout: 3000 },
     )
 
-    await userEvent.click(screen.getByLabelText('落印，开启勘验'))
+    await userEvent.click(screen.getByLabelText('开始探索'))
 
     await waitFor(() => expectLocation('/interest'), { timeout: 3000 })
   })

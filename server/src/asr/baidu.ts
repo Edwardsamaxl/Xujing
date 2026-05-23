@@ -68,6 +68,17 @@ export async function transcribePcm(
   pcm: Buffer,
   cuid: string,
 ): Promise<BaiduAsrResult> {
+  const apiKey = process.env.BAIDU_ASR_API_KEY
+  const secretKey = process.env.BAIDU_ASR_SECRET_KEY
+
+  // 未配置密钥时返回模拟结果，避免前端直接崩溃（和 DeepSeek fallback 保持一致）
+  if (!apiKey || !secretKey) {
+    return {
+      text: '[未配置 BAIDU_ASR_API_KEY，模拟识别] 请在后端 .env 中配置百度 ASR 密钥以启用真实语音识别。',
+      raw: { mock: true },
+    }
+  }
+
   const token = await getAccessToken()
   // dev_pid=80001 = 极速版普通话输入法模型，对短问答场景效果最好
   const params = new URLSearchParams({
