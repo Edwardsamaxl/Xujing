@@ -212,7 +212,7 @@
   overflow: hidden;
   padding: env(safe-area-inset-top) 22px calc(env(safe-area-inset-bottom) + 42px);
   background:
-    linear-gradient(90deg, rgba(193, 58, 58, 0.055) 0 1px, transparent 1px 100%),
+    linear-gradient(90deg, rgba(44, 43, 41, 0.045) 0 1px, transparent 1px 100%),
     repeating-linear-gradient(87deg, rgba(44, 43, 41, 0.022) 0 1px, transparent 1px 15px),
     repeating-linear-gradient(178deg, rgba(255, 255, 255, 0.32) 0 1px, transparent 1px 21px),
     #F7F4ED;
@@ -348,14 +348,14 @@
 .start-title-rule {
   width: 32px;
   height: 1px;
-  background: rgba(193, 58, 58, 0.42);
+  background: rgba(163, 38, 38, 0.32);
 }
 
 .start-title-dot {
   font-family: 'Songti SC', 'STSong', 'Noto Serif SC', 'SimSun', serif;
   font-size: 16px;
   line-height: 1;
-  color: #C13A3A;
+  color: #A32626;
 }
 
 .start-screen--content .start-title-line:first-of-type {
@@ -388,7 +388,7 @@
 }
 
 .start-enter-btn:focus-visible {
-  outline: 2px solid rgba(193, 58, 58, 0.42);
+  outline: 2px solid rgba(163, 38, 38, 0.42);
   outline-offset: 5px;
 }
 
@@ -399,9 +399,9 @@
   align-items: center;
   justify-content: center;
   padding: 0;
-  border: 1px solid #C13A3A;
+  border: 1px solid #A32626;
   border-radius: 9999px;
-  background: #C13A3A;
+  background: #A32626;
   color: #F7F4ED;
   font-family: 'Songti SC', 'STSong', 'Noto Serif SC', 'SimSun', serif;
   font-size: 19px;
@@ -412,8 +412,8 @@
   opacity: 0;
   transform: scale(0.92);
   box-shadow:
-    0 2px 10px rgba(193, 58, 58, 0.18),
-    0 0 0 6px rgba(193, 58, 58, 0.06);
+    0 2px 10px rgba(163, 38, 38, 0.14),
+    0 0 0 6px rgba(163, 38, 38, 0.04);
   transition:
     background-color 150ms ease-out,
     border-color 150ms ease-out,
@@ -440,20 +440,20 @@
 
 .start-screen--content .start-enter-btn:hover {
   box-shadow:
-    0 4px 14px rgba(193, 58, 58, 0.28),
-    0 0 0 8px rgba(193, 58, 58, 0.08);
+    0 4px 14px rgba(163, 38, 38, 0.22),
+    0 0 0 8px rgba(163, 38, 38, 0.06);
 }
 
 .start-screen--entering .start-enter-btn,
 .start-enter-btn:active {
   animation: none;
   opacity: 1;
-  background: #D44A4A;
-  border-color: #D44A4A;
+  background: #B83333;
+  border-color: #B83333;
   transform: scale(0.95);
   box-shadow:
-    0 1px 6px rgba(193, 58, 58, 0.32),
-    0 0 0 4px rgba(193, 58, 58, 0.10);
+    0 1px 6px rgba(163, 38, 38, 0.26),
+    0 0 0 4px rgba(163, 38, 38, 0.08);
 }
 
 .start-opening {
@@ -573,12 +573,12 @@
   }
   48% {
     opacity: 1;
-    color: rgba(167, 60, 56, 0.18);
+    color: rgba(163, 38, 38, 0.18);
     transform: scale(1.015);
   }
   100% {
     opacity: 1;
-    color: #C13A3A;
+    color: #A32626;
     transform: scale(1);
   }
 }
@@ -651,7 +651,7 @@
   }
 
   .start-kicker.start-imprint {
-    color: #C13A3A;
+    color: #A32626;
   }
 }
 
