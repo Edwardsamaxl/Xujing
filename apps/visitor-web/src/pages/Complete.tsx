@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getVisitorId, clearVisitor, getCompletedSpots } from '../utils/storage'
+import { getVisitorId, clearVisitor, getCompletedSpots, isNarrativeUnlocked } from '../utils/storage'
 import { SPOTS } from '../data/spots'
 
 interface RouteSummary {
@@ -115,7 +115,7 @@ export default function Complete() {
           >
             <div className="grid grid-cols-3 gap-2">
               {GRID_ITEMS.map((item) => {
-                const isUnlocked = completedSet.has(item.id)
+                const isUnlocked = isNarrativeUnlocked(item.id)
                 const spot = SPOTS[item.id]
                 if (!spot) return null
 

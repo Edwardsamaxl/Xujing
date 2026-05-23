@@ -4,16 +4,73 @@ import { SPOTS, getCrowdLevel } from '../data/spots'
 import { addCompletedSpot, unlockNarrative, setCurrentTarget, getCompletedSpots } from '../utils/storage'
 import { getRouteTo } from '../utils/route-planner'
 
-/* ---------- 故宫简图坐标（viewBox 0 0 400 280）---------- */
-const ENTRANCE_POS = { x: 200, y: 262 }
+/* ---------- 故宫简图 —— 基于真实布局（viewBox 0 0 400 320） ---------- */
 
+/* 6 个点位坐标，按故宫真实方位放置 */
 const SPOT_POS: Record<string, { x: number; y: number }> = {
-  'spot-treasure': { x: 282, y: 48 },   // 珍宝馆 — 东北
-  'spot-clock':    { x: 314, y: 96 },   // 钟表馆 — 内廷东
-  'spot-yanxi':    { x: 296, y: 148 },  // 延禧宫 — 东六宫
-  'spot-shoukang': { x: 106, y: 88 },   // 寿康宫 — 外西路偏北
-  'spot-cining':   { x: 88,  y: 152 },  // 慈宁宫 — 外西路
-  'spot-ceramic':  { x: 74,  y: 214 },  // 武英殿 — 外朝西
+  'spot-ceramic':  { x: 70,  y: 215 }, // 武英殿 — 外朝西路（熙和门以西）
+  'spot-clock':    { x: 305, y: 125 }, // 钟表馆 — 内廷东路（景运门以东）
+  'spot-treasure': { x: 340, y: 50 },  // 珍宝馆 — 外东路东北角（锡庆门入）
+  'spot-yanxi':    { x: 315, y: 95 },  // 延禧宫 — 东六宫
+  'spot-cining':   { x: 80,  y: 135 }, // 慈宁宫 — 外西路偏南
+  'spot-shoukang': { x: 65,  y: 85 },  // 寿康宫 — 外西路偏北
+}
+
+/* 关键通道节点 */
+const NODES: Record<string, { x: number; y: number }> = {
+  entrance:  { x: 200, y: 290 }, // 午门
+  taihemen:  { x: 200, y: 230 }, // 太和门
+  qianqing:  { x: 200, y: 145 }, // 乾清门
+  xihe:      { x: 115, y: 210 }, // 熙和门（外朝西路入口）
+  longzong:  { x: 130, y: 145 }, // 隆宗门（外西路入口）
+  jingyun:   { x: 270, y: 145 }, // 景运门（内廷东路入口）
+  xiqing:    { x: 290, y: 105 }, // 锡庆门 / 九龙壁（宁寿宫入口）
+}
+
+/* 通道邻接图 —— 只连真实可走的开放通道 */
+const GRAPH: Record<string, string[]> = {
+  entrance:  ['taihemen'],
+  taihemen:  ['entrance', 'qianqing', 'xihe'],
+  qianqing:  ['taihemen', 'longzong', 'jingyun'],
+  xihe:      ['taihemen', 'spot-ceramic'],
+  longzong:  ['qianqing', 'spot-cining', 'spot-shoukang'],
+  jingyun:   ['qianqing', 'spot-clock', 'spot-yanxi', 'xiqing'],
+  xiqing:    ['jingyun', 'spot-treasure'],
+  'spot-ceramic':  ['xihe'],
+  'spot-cining':   ['longzong', 'spot-shoukang'],
+  'spot-shoukang': ['longzong', 'spot-cining'],
+  'spot-clock':    ['jingyun', 'spot-yanxi'],
+  'spot-yanxi':    ['jingyun', 'spot-clock'],
+  'spot-treasure': ['xiqing'],
+}
+
+/* BFS 找最短通道 */
+function findRoutePath(fromId: string | null, toId: string): string {
+  const from = fromId ?? 'entrance'
+  if (from === toId) return ''
+
+  const queue: { node: string; path: string[] }[] = [{ node: from, path: [from] }]
+  const visited = new Set([from])
+
+  while (queue.length) {
+    const { node, path } = queue.shift()!
+    for (const neighbor of GRAPH[node] ?? []) {
+      if (visited.has(neighbor)) continue
+      const newPath = [...path, neighbor]
+      if (neighbor === toId) {
+        const allNodes = { ...NODES, ...SPOT_POS, entrance: NODES.entrance }
+        return newPath
+          .map((n, i) => {
+            const p = allNodes[n]
+            return `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`
+          })
+          .join(' ')
+      }
+      visited.add(neighbor)
+      queue.push({ node: neighbor, path: newPath })
+    }
+  }
+  return ''
 }
 
 const COLD_SPOT_FLAVOR: Record<string, string> = {
@@ -23,16 +80,6 @@ const COLD_SPOT_FLAVOR: Record<string, string> = {
   'spot-clock': '铜壶滴漏中那片从未见过的金属薄片，在等你解读……',
   'spot-treasure': '凤冠上消失的两颗东珠，似乎指向一段无人知晓的往事……',
   'spot-ceramic': '碎瓷片上的四字款识，与展出真品有着微妙差异……',
-}
-
-/* 生成两点间的曲线路径（带轻微弧度，更像手绘） */
-function curvedPath(a: { x: number; y: number }, b: { x: number; y: number }): string {
-  const mx = (a.x + b.x) / 2
-  const my = (a.y + b.y) / 2
-  // 给中点加一点随机偏移，制造手绘感
-  const offX = (b.y - a.y) * 0.15
-  const offY = -(b.x - a.x) * 0.15
-  return `M ${a.x} ${a.y} Q ${mx + offX} ${my + offY} ${b.x} ${b.y}`
 }
 
 export default function Navigate() {
@@ -70,12 +117,7 @@ export default function Navigate() {
 
   const completed = getCompletedSpots()
   const lastCompleted = completed.length > 0 ? completed[completed.length - 1] : null
-  const startPos = lastCompleted ? SPOT_POS[lastCompleted] : ENTRANCE_POS
-  const endPos = SPOT_POS[spotId]
-  const routePath = useMemo(() => {
-    if (!startPos || !endPos) return ''
-    return curvedPath(startPos, endPos)
-  }, [startPos, endPos])
+  const routePath = useMemo(() => findRoutePath(lastCompleted, spotId), [lastCompleted, spotId])
 
   const handleArrived = () => {
     // 1. 标记已勘验

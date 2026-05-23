@@ -83,7 +83,7 @@ export default function Narrative() {
     return () => clearInterval(interval)
   }, [spotId, activeTag, template])
 
-  if (!spotId || !SPOTS[spotId]) {
+  if (!spot) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center px-5">
         <p className="text-ink-dim mb-4">暂无可用密档</p>
@@ -98,6 +98,7 @@ export default function Narrative() {
   }
 
   const handleNextSpot = () => {
+    if (!spotId) return
     const nextSpotId = getNextRecommendedSpot(spotId)
     if (nextSpotId) {
       navigate(`/navigate?spotId=${nextSpotId}`)
@@ -190,6 +191,13 @@ export default function Narrative() {
                   <p className="text-center text-[15px] leading-[1.6] text-gold/70 italic font-serif mt-5">
                     &ldquo;{template.flavorText}&rdquo;
                   </p>
+                )}
+
+                {/* Next spot hook — narrative continuation */}
+                {template?.nextHook && (
+                  <div className="mt-5 pl-3 border-l-2 border-gold/30">
+                    <p className="text-[14px] leading-[1.7] text-ink-dim">{template.nextHook}</p>
+                  </div>
                 )}
               </div>
             </div>
@@ -320,15 +328,8 @@ export default function Narrative() {
             {isListening ? '松开结束提问' : '长按麦克风提问'}
           </p>
 
-          {/* Next spot hook card */}
-          {template?.nextHook && (
-            <div className="mb-4 rounded-xl border border-gold/20 bg-gold-dim/20 p-4">
-              <p className="text-[13px] leading-[1.7] text-ink-dim">{template.nextHook}</p>
-            </div>
-          )}
-
           {/* Bottom CTA */}
-          <div className="mt-2 space-y-3">
+          <div className="mt-6 space-y-3">
             <button
               onClick={handleNextSpot}
               className="h-12 w-full rounded-full bg-cinnabar text-[15px] font-medium text-white tracking-[0.04em] transition-all duration-200 ease-out active:scale-[0.96] hover:shadow-[0_4px_20px_rgba(163,38,38,0.25)]"
