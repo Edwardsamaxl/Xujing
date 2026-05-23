@@ -5,6 +5,7 @@ import {
   getCheckInsByVisitor,
   getTemplate,
 } from '../data'
+import { callDeepSeek } from '../llm/deepseek'
 
 export interface NarrativeResponse {
   currentSpotName: string
@@ -56,7 +57,7 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
     totalSpots: allSpots.length,
   })
 
-  const narrativeText = await callDeepSeek(prompt)
+  const narrativeText = (await callDeepSeek(prompt)) || '请继续探索。'
 
   // 只统计目的地（cold spots）
   const targetSpots = allSpots.filter(s => s.type === 'cold')
@@ -95,32 +96,3 @@ export async function generateTask(visitorId: string): Promise<NarrativeResponse
   }
 }
 
-async function callDeepSeek(prompt: string): Promise<string> {
-  const apiKey = process.env.DEEPSEEK_API_KEY
-  const baseUrl = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com'
-  if (!apiKey) {
-    // Fallback: return a readable placeholder when API key is not configured
-    return `${prompt.slice(0, 80)}...（请在 .env 中配置 DEEPSEEK_API_KEY 以启用 AI 生成）`
-  }
-
-  const res = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: 'deepseek-chat',
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.8,
-      max_tokens: 512,
-    }),
-  })
-
-  if (!res.ok) {
-    throw new Error(`DeepSeek API error: ${res.status}`)
-  }
-
-  const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
-  return data.choices?.[0]?.message?.content?.trim() || '请继续探索。'
-}
