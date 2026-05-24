@@ -46,14 +46,31 @@ export async function chatComplete(
     }),
   })
 
-  if (!res.ok) {
-    throw new Error(`DeepSeek API error: ${res.status}`)
-  }
-
   const data = (await res.json()) as {
+    error?: { message?: string; type?: string; code?: string }
     choices?: Array<{ message?: { content?: string } }>
   }
-  return data.choices?.[0]?.message?.content?.trim() || ''
+
+  // DeepSeek 有时在 200 响应体里返回错误对象
+  if (data.error) {
+    const errMsg = `DeepSeek API error: ${data.error.code ?? 'unknown'} - ${data.error.message ?? JSON.stringify(data.error)}`
+    console.error('[deepseek]', errMsg, 'Status:', res.status)
+    throw new Error(errMsg)
+  }
+
+  if (!res.ok) {
+    const errMsg = `DeepSeek API error: ${res.status}`
+    console.error('[deepseek]', errMsg, 'Body:', JSON.stringify(data).slice(0, 500))
+    throw new Error(errMsg)
+  }
+
+  const content = data.choices?.[0]?.message?.content?.trim() ?? ''
+  if (!content) {
+    console.error('[deepseek] Empty content. Response:', JSON.stringify(data).slice(0, 500))
+    throw new Error('DeepSeek API returned empty content')
+  }
+
+  return content
 }
 
 /** 兼容旧调用：单 prompt → 当作 user message 处理。 */

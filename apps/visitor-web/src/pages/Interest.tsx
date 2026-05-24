@@ -83,51 +83,20 @@ const INTEREST_CARD_BACKGROUNDS: Record<string, string> = {
 export default function Interest() {
   const navigate = useNavigate()
   const [entered, setEntered] = useState(false)
-  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     const timer = setTimeout(() => setEntered(true), 50)
     return () => clearTimeout(timer)
   }, [])
 
-  const handleCardClick = async (tag: string) => {
-    setLoading(true)
-
-    try {
-      const res = await fetch("/api/visitor/session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          campaignId: "campaign-palace-001",
-          interestTags: [tag],
-        }),
-      })
-      const data = await res.json()
-      setVisitorId(data.id)
-    } catch {
-      setVisitorId("demo-" + Date.now())
-    }
-
+  const handleCardClick = (tag: string) => {
     setInterestTag(tag)
-    navigate("/explore")
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen flex-col items-center justify-center px-5 bg-paper">
-        <div className="flex gap-2 mb-4">
-          <div className="loader-dot" />
-          <div className="loader-dot" />
-          <div className="loader-dot" />
-        </div>
-        <p className="text-[13px] text-ink-dim tracking-[0.04em]">正在生成你的专属密档...</p>
-      </div>
-    )
+    navigate('/explore')
   }
 
   return (
     <div className="flex min-h-screen flex-col bg-paper">
-      <TopNav title="择趣" showBack onBack={() => navigate('/')} />
+      <TopNav title="择趣" showBack onBack={() => navigate('/')} showAchievement />
       <div
         className={`flex-1 flex flex-col px-5 pt-6 pb-8 transition-all duration-500 ease-out ${
           entered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"

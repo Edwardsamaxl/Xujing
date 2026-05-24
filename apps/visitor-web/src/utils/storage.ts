@@ -14,6 +14,10 @@ export function setVisitorId(id: string) {
   localStorage.setItem(VISITOR_KEY, id)
 }
 
+export function removeVisitorId() {
+  localStorage.removeItem(VISITOR_KEY)
+}
+
 export function getCompletedSpots(): string[] {
   const raw = localStorage.getItem(COMPLETED_KEY)
   try {

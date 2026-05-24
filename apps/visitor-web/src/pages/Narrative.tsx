@@ -281,15 +281,16 @@ export default function Narrative() {
         title={spot.shortName}
         showBack
         onBack={() => navigate(-1)}
+        showAchievement
         rightAction={
           <button
             onClick={() => setShowArchive(true)}
-            className="flex items-center gap-1.5 text-[12px] text-gold tracking-[0.04em] px-3 h-9 rounded-full border border-gold/30 hover:bg-gold/5 transition-[background-color,opacity]"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-ink-dim transition-colors hover:text-gold hover:bg-gold/5"
+            aria-label="密档"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20" />
             </svg>
-            密档
           </button>
         }
       />
@@ -311,19 +312,14 @@ export default function Narrative() {
 
               <div className="px-5 pt-5 pb-6">
                 {/* Spot name */}
-                <h2 className="font-display text-[20px] text-ink">{displayTitle}</h2>
-
-                {/* Artifact anchor */}
-                {template && (
-                  <p className="text-[12px] leading-[1.6] text-ink-dim mt-2">{template.title}</p>
-                )}
+                <h2 className="font-display text-[20px] text-ink font-bold">{displayTitle}</h2>
 
                 {/* AI voice indicator: 朗读剧情 */}
                 {tts.supported && (
                   <button
                     type="button"
                     onClick={handleToggleNarrativeTts}
-                    className="mt-4 flex items-center gap-2 px-2 h-10 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"
+                    className="mt-2 flex items-center gap-2 px-2 h-10 -ml-2 rounded-full text-left transition-colors hover:bg-paper-deep/60"
                     aria-label={speakingTarget === 'narrative' && tts.speaking ? '暂停朗读' : '朗读剧情'}
                   >
                     <div className="flex items-center gap-0.5">

@@ -35,10 +35,15 @@ router.post('/ask', async (req, res) => {
       answer = 'DeepSeek API Key 无效，请检查后端 .env 配置。'
     } else if (msg.includes('429')) {
       answer = 'DeepSeek 请求过于频繁，请稍后再试。'
+    } else if (msg.includes('empty content')) {
+      answer = '模型暂时没有回答，请稍后再试。'
+    } else if (msg.includes('network') || msg.includes('fetch') || msg.includes('ECONNREFUSED') || msg.includes('ETIMEDOUT')) {
+      answer = '网络连接不稳定，请检查网络后重试。'
     } else if (msg.includes('Visitor not found')) {
       res.status(404).json({ error: 'Visitor not found' })
       return
     }
+    console.error('[qa/ask] Unmapped error:', msg)
     res.json({ answer })
   }
 })

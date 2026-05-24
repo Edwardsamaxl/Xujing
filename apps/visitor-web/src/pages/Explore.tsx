@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useEffect, useMemo, useState } from 'react'
 import TopNav from '../components/TopNav'
 import { getAllSpots, getCrowdLevel, getEdge, getSpotById } from '../data/spots'
-import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag, getVisitorId } from '../utils/storage'
+import { getCompletedSpots, getCurrentTarget, setCurrentTarget, getInterestTag, getVisitorId, setVisitorId, removeVisitorId } from '../utils/storage'
 import { getRemainingSpots, getRandomUnexploredSpot } from '../utils/route-planner'
 import { fetchRecommendation, type RecommendResult } from '../api/recommend'
 import { Button } from '../components/Button'
@@ -99,11 +99,39 @@ export default function Explore() {
   }, [])
 
   useEffect(() => {
+    const createSession = () => {
+      const tag = getInterestTag()
+      fetch('/api/visitor/session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ campaignId: 'campaign-palace-001', interestTags: [tag] }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          setVisitorId(data.id)
+          return fetchRecommendation({ visitorId: data.id })
+        })
+        .then(r => setRecommendation(r))
+        .catch(() => setRecommendation(null))
+    }
+
     const visitorId = getVisitorId()
-    if (!visitorId) return
-    fetchRecommendation({ visitorId })
-      .then(r => setRecommendation(r))
-      .catch(() => setRecommendation(null))
+    if (visitorId) {
+      fetchRecommendation({ visitorId })
+        .then(r => {
+          if (r === null) {
+            // 后端不认识这个 ID（404），清除后重新创建 session
+            removeVisitorId()
+            createSession()
+          } else {
+            setRecommendation(r)
+          }
+        })
+        .catch(() => setRecommendation(null))
+      return
+    }
+
+    createSession()
   }, [])
 
   const completed = getCompletedSpots()
@@ -169,7 +197,7 @@ export default function Explore() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopNav title="选关中枢" showBack onBack={() => navigate('/interest')} />
+      <TopNav title="选关中枢" showBack onBack={() => navigate('/interest')} showAchievement />
       <div className={`flex-1 flex flex-col px-5 pt-6 pb-8 transition-[opacity,transform] duration-500 ease-out ${entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
         <div className="mx-auto w-full max-w-[400px]">
           {/* Header */}

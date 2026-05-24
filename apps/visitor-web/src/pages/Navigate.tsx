@@ -116,7 +116,7 @@ export default function Navigate() {
   if (!spotId || !SPOTS[spotId]) {
     return (
       <div className="flex min-h-screen flex-col">
-        <TopNav title="路线引导" showBack onBack={() => navigate('/explore')} />
+        <TopNav title="路线引导" showBack onBack={() => navigate('/explore')} showAchievement />
         <div className="flex-1 flex flex-col items-center justify-center px-6">
           <p className="text-ink-dim mb-4">未选择目标地点</p>
           <button
@@ -153,7 +153,7 @@ export default function Navigate() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <TopNav title="路线引导" showBack onBack={() => navigate('/explore')} />
+      <TopNav title="路线引导" showBack onBack={() => navigate('/explore')} showAchievement />
       <div
         className={`flex-1 flex flex-col px-5 pt-6 pb-6 transition-[opacity,transform] duration-500 ease-out ${
           entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'
