@@ -208,24 +208,23 @@ export default function Complete() {
             </span>
           </div>
           <div
-            className="rounded-lg px-2 py-4"
+            className="relative rounded-lg px-5 py-5"
             style={{
               background: '#EFEBE1',
-              borderTop: '1px solid #D4CFC3',
-              borderBottom: '1px solid #D4CFC3',
+              border: '1px solid #D4CFC3',
             }}
           >
-            <div className="grid grid-cols-4">
-              {STAT_CARDS.map((stat, i) => (
+            {/* Corner ornaments */}
+            <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-cinnabar/25" />
+            <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-cinnabar/25" />
+            <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-cinnabar/25" />
+            <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-cinnabar/25" />
+
+            <div className="grid grid-cols-4 divide-x divide-scroll-line/60">
+              {STAT_CARDS.map((stat) => (
                 <div
                   key={stat.key}
-                  className="px-2 text-center"
-                  style={{
-                    borderRight:
-                      i < STAT_CARDS.length - 1
-                        ? '1px solid rgba(43,41,38,0.08)'
-                        : 'none',
-                  }}
+                  className="px-2 text-center first:pl-0 last:pr-0"
                 >
                   <div className="text-ink font-display text-[20px] font-bold leading-none">
                     {statValues[stat.key]}
@@ -407,16 +406,12 @@ export default function Complete() {
                           draggable={false}
                         />
                       ) : (
-                        <div
-                          className="w-[78%] h-[78%] rounded-full flex items-center justify-center"
-                          style={{
-                            border: '1px dashed rgba(43,41,38,0.16)',
-                          }}
-                        >
-                          <span className="text-ink-faint/30 text-sm font-display select-none">
-                            ?
-                          </span>
-                        </div>
+                        <img
+                          src={item.medalPath}
+                          alt={item.label}
+                          className="w-full h-full object-contain grayscale opacity-30"
+                          draggable={false}
+                        />
                       )}
                     </div>
                   )

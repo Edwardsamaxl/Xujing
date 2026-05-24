@@ -14,7 +14,7 @@ function PageTransition({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(t)
   }, [])
   return (
-    <div className={`transition-[opacity,transform] duration-500 ease-out ${show ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}>
+    <div className={`transition-[opacity,transform] duration-500 ease-out ${show ? 'opacity-100' : 'opacity-0 translate-y-4'}`}>
       {children}
     </div>
   )
