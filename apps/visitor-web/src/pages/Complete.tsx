@@ -10,7 +10,6 @@ import {
   getUnlockedNarratives,
   isNarrativeUnlocked,
   getCheckInTimes,
-  getInterestTag,
 } from '../utils/storage'
 import { getTotalRouteStats } from '../utils/route-planner'
 import { SPOTS } from '../data/spots'
@@ -22,15 +21,6 @@ interface GridItem {
   id: string
   label: string
   medalPath: string
-}
-
-interface InterestProfile {
-  title: string
-  subtitle: string
-  seal: string
-  sealSub: string
-  accent: string
-  posterCaption: string
 }
 
 // ---------- Constants ----------
@@ -51,55 +41,29 @@ const STAT_CARDS = [
   { label: '总耗时', unit: '分', key: 'time' as const },
 ]
 
-const INTEREST_PROFILES: Record<string, InterestProfile> = {
-  历史: {
-    title: '史官勘验完成',
-    subtitle: '六百年宫廷史，已尽收卷中',
-    seal: '史',
-    sealSub: '已勘',
-    accent: '#8C5A20',
-    posterCaption: '以史为眼，重读紫禁城的权力与兴衰',
-  },
-  建筑: {
-    title: '营造勘验完成',
-    subtitle: '榫卯斗拱之间，藏着凝固的音乐',
-    seal: '建',
-    sealSub: '已勘',
-    accent: '#9F6D16',
-    posterCaption: '以营造为尺，丈量皇家建筑的几何密码',
-  },
-  人物: {
-    title: '人物勘验完成',
-    subtitle: '帝王将相恩怨，已录入档案',
-    seal: '人',
-    sealSub: '已勘',
-    accent: '#54677D',
-    posterCaption: '以人为镜，照见紫禁城深处的温度与血腥',
-  },
-  亲子: {
-    title: '宫廷探秘完成',
-    subtitle: '寓教于乐，故宫是最好的立体教科书',
-    seal: '探',
-    sealSub: '已勘',
-    accent: '#66714B',
-    posterCaption: '以趣为引，在故宫发现最好玩的知识宝藏',
-  },
-  悬疑: {
-    title: '密档勘验完成',
-    subtitle: '未解之谜已揭开，真相远比传说离奇',
-    seal: '疑',
-    sealSub: '已勘',
-    accent: '#934C36',
-    posterCaption: '以疑为钥，打开紫禁城隐秘的档案柜',
-  },
-  工艺: {
-    title: '工艺勘验完成',
-    subtitle: '巧夺天工之术，已逐一核验',
-    seal: '工',
-    sealSub: '已勘',
-    accent: '#476F72',
-    posterCaption: '以工为道，见证皇家技艺与时间的对决',
-  },
+// ---------- Hooks ----------
+
+function useCountUp(target: number, duration = 1000, delay = 0) {
+  const [value, setValue] = useState(0)
+  useEffect(() => {
+    if (target <= 0) {
+      setValue(0)
+      return
+    }
+    const timer = setTimeout(() => {
+      const startTime = Date.now()
+      const tick = () => {
+        const elapsed = Date.now() - startTime
+        const progress = Math.min(elapsed / duration, 1)
+        const eased = 1 - Math.pow(1 - progress, 4)
+        setValue(Math.round(target * eased))
+        if (progress < 1) requestAnimationFrame(tick)
+      }
+      requestAnimationFrame(tick)
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [target, duration, delay])
+  return value
 }
 
 // ---------- Main Page ----------
@@ -115,17 +79,17 @@ export default function Complete() {
   const [selectedSpotId, setSelectedSpotId] = useState<string | null>(null)
   const posterRef = useRef<HTMLDivElement>(null)
 
-  const interestTag = getInterestTag()
-  const profile = INTEREST_PROFILES[interestTag] ?? INTEREST_PROFILES['历史']
-
   const completedSpots = getCompletedSpots()
   const unlockedNarratives = getUnlockedNarratives()
   const spotCount = completedSpots.length
   const rewardCount = unlockedNarratives.length
 
+  // 真实步行距离：用 ENTRY_EDGES + SPOT_GRAPH 累加，按用户实际访问顺序
   const { distance: realDistance, walkTime: realWalkTime } =
     getTotalRouteStats(completedSpots)
 
+  // 真实总耗时：取首次 → 末次打卡时间戳的真实间隔（分钟）。如果不足两次或缺少时间戳，
+  // 退回纯走路时间 + 每个点位 20 分钟参观估算。
   const checkInTimes = getCheckInTimes()
   const timestamps = completedSpots
     .map((id) => checkInTimes[id])
@@ -135,16 +99,20 @@ export default function Complete() {
       ? Math.max(1, Math.round((Math.max(...timestamps) - Math.min(...timestamps)) / 60000))
       : realWalkTime + spotCount * 20
 
-  const statValues = {
-    spots: spotCount,
-    rewards: rewardCount,
-    distance: realDistance,
-    time: realTotalMin,
-  }
+  const distance = realDistance
+  const time = realTotalMin
 
-  const posterSpotCount = GRID_ITEMS.filter((item) =>
-    isNarrativeUnlocked(item.id)
-  ).length
+  const spotCountAnim = useCountUp(spotCount, 800, 300)
+  const rewardCountAnim = useCountUp(rewardCount, 800, 400)
+  const distanceAnim = useCountUp(distance, 800, 500)
+  const timeAnim = useCountUp(time, 800, 600)
+
+  const statValues = {
+    spots: spotCountAnim,
+    rewards: rewardCountAnim,
+    distance: distanceAnim,
+    time: timeAnim,
+  }
 
   // Auth check + page enter
   useEffect(() => {
@@ -196,6 +164,10 @@ export default function Complete() {
     }
   }, [])
 
+  const posterSpotCount = GRID_ITEMS.filter((item) =>
+    isNarrativeUnlocked(item.id)
+  ).length
+
   const handleMedalClick = (spotId: string) => {
     if (!isNarrativeUnlocked(spotId)) return
     setSelectedSpotId(spotId)
@@ -219,48 +191,13 @@ export default function Complete() {
           entered ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
         }`}
       >
-        {/* ===== Archive Header ===== */}
-        <div className="relative text-center mb-8">
-          <div
-            className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-4"
-            style={{
-              background: `${profile.accent}12`,
-              border: `1px solid ${profile.accent}25`,
-            }}
-          >
-            <span
-              className="w-1 h-1 rounded-full"
-              style={{ background: profile.accent }}
-            />
-            <span
-              className="text-[10px] tracking-[0.12em]"
-              style={{ color: profile.accent }}
-            >
-              {interestTag} · 勘验档案
-            </span>
-          </div>
-
-          <h1 className="font-display text-[26px] text-ink tracking-[0.04em] leading-[1.3] mb-2">
-            {profile.title}
-          </h1>
-          <p className="text-[14px] leading-[1.6] text-ink-dim max-w-[280px] mx-auto">
-            {profile.subtitle}
-          </p>
-
-          {/* Seal stamp */}
-          <div
-            className="absolute -right-1 top-0 w-14 h-14 rounded-full border-[1.5px] flex flex-col items-center justify-center rotate-3 opacity-80"
-            style={{ borderColor: profile.accent, color: profile.accent }}
-          >
-            <span className="absolute inset-[3px] rounded-full border border-current opacity-30" />
-            <span className="font-display text-[16px] leading-none">
-              {profile.seal}
-            </span>
-            <span className="text-[8px] tracking-[0.1em] mt-0.5">
-              {profile.sealSub}
-            </span>
-          </div>
-        </div>
+        {/* ===== Title ===== */}
+        <h1 className="font-display text-[28px] text-ink text-center tracking-[0.04em] leading-[1.3] mb-2">
+          密档寻踪·已完成
+        </h1>
+        <p className="text-center text-[16px] leading-[1.65] text-ink-dim mb-8">
+          你穿越了 {spotCountAnim} 座宫殿，找到了 {rewardCountAnim} 条隐藏线索
+        </p>
 
         {/* ===== Stats ===== */}
         <div className="mb-8">
@@ -271,23 +208,24 @@ export default function Complete() {
             </span>
           </div>
           <div
-            className="relative rounded-lg px-5 py-5"
+            className="rounded-lg px-2 py-4"
             style={{
               background: '#EFEBE1',
-              border: '1px solid #D4CFC3',
+              borderTop: '1px solid #D4CFC3',
+              borderBottom: '1px solid #D4CFC3',
             }}
           >
-            {/* Corner ornaments */}
-            <div className="absolute top-2 left-2 w-3 h-3 border-t border-l border-cinnabar/25" />
-            <div className="absolute top-2 right-2 w-3 h-3 border-t border-r border-cinnabar/25" />
-            <div className="absolute bottom-2 left-2 w-3 h-3 border-b border-l border-cinnabar/25" />
-            <div className="absolute bottom-2 right-2 w-3 h-3 border-b border-r border-cinnabar/25" />
-
-            <div className="grid grid-cols-4 divide-x divide-scroll-line/60">
-              {STAT_CARDS.map((stat) => (
+            <div className="grid grid-cols-4">
+              {STAT_CARDS.map((stat, i) => (
                 <div
                   key={stat.key}
-                  className="px-2 text-center first:pl-0 last:pr-0"
+                  className="px-2 text-center"
+                  style={{
+                    borderRight:
+                      i < STAT_CARDS.length - 1
+                        ? '1px solid rgba(43,41,38,0.08)'
+                        : 'none',
+                  }}
                 >
                   <div className="text-ink font-display text-[20px] font-bold leading-none">
                     {statValues[stat.key]}
@@ -368,7 +306,7 @@ export default function Complete() {
           </div>
         </div>
 
-        {/* ===== Route Review (Vertical Timeline) ===== */}
+        {/* ===== Route Review ===== */}
         <div
           className="rounded-lg p-5 mb-6"
           style={{
@@ -377,55 +315,34 @@ export default function Complete() {
             borderBottom: '1px solid #D4CFC3',
           }}
         >
-          <div className="flex items-center gap-2 mb-5">
+          <div className="flex items-center gap-2 mb-4">
             <div className="w-1 h-4 bg-cinnabar rounded-full" />
             <span className="text-[12px] text-ink-dim tracking-[0.04em]">
               路线回顾
             </span>
           </div>
-
-          <div className="relative pl-6">
-            {/* Vertical connecting line */}
-            <div className="absolute left-[9px] top-2 bottom-2 w-px bg-scroll-line" />
-
-            {GRID_ITEMS.map((item) => {
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-2 text-[12px] text-ink-dim">
+            {GRID_ITEMS.map((item, i) => {
               const done = isNarrativeUnlocked(item.id)
               return (
-                <div
-                  key={item.id}
-                  className="relative flex items-center gap-3 py-2.5"
-                >
-                  {/* Timeline node */}
-                  <div
-                    className={`absolute left-0 w-[18px] h-[18px] rounded-full flex items-center justify-center z-10 transition-colors duration-300 ${
-                      done
-                        ? 'bg-cinnabar'
-                        : 'bg-paper border border-scroll-line-dark'
-                    }`}
-                  >
-                    {done && (
-                      <div className="w-1.5 h-1.5 rounded-full bg-white" />
-                    )}
-                  </div>
-
-                  {/* Spot label */}
-                  <span
-                    className={`text-[13px] ${
-                      done
-                        ? 'text-ink font-medium'
-                        : 'text-ink-faint'
-                    }`}
-                  >
-                    {item.label}
-                  </span>
-
-                  {/* Status badge */}
-                  {done && (
-                    <span className="ml-auto text-[10px] text-gold tracking-wide">
-                      已勘验
-                    </span>
+                <span key={item.id} className="flex items-center">
+                  <span className={done ? 'text-ink font-medium' : ''}>{item.label}</span>
+                  {i < GRID_ITEMS.length - 1 && (
+                    <svg
+                      className="mx-1 h-3 w-3 text-ink-faint/30"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth={2}
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M9 5l7 7-7 7"
+                      />
+                    </svg>
                   )}
-                </div>
+                </span>
               )
             })}
           </div>
@@ -449,18 +366,9 @@ export default function Complete() {
             {/* Poster */}
             <div
               ref={posterRef}
-              className="w-[320px] mx-auto relative overflow-hidden"
-              style={{
-                background: '#F7F4ED',
-                aspectRatio: '3/4',
-              }}
+              className="w-[320px] mx-auto rounded-lg p-6 relative overflow-hidden"
+              style={{ background: '#F7F4ED' }}
             >
-              {/* Interest tint wash */}
-              <div
-                className="absolute inset-0 opacity-[0.025]"
-                style={{ background: profile.accent }}
-              />
-
               {/* Paper grain */}
               <div
                 className="absolute inset-0 opacity-[0.03]"
@@ -471,72 +379,52 @@ export default function Complete() {
                 }}
               />
 
-              {/* Top frame line */}
-              <div className="absolute top-5 left-6 right-6 h-px bg-scroll-line" />
-
               {/* Header */}
-              <div className="relative z-10 text-center pt-10 pb-5">
-                <div className="flex items-center justify-center gap-3 mb-3">
-                  <div className="h-px w-8 bg-scroll-line-dark" />
-                  <span className="text-gold text-[10px] tracking-[0.25em] font-serif">
-                    故宫私人馆藏展
-                  </span>
-                  <div className="h-px w-8 bg-scroll-line-dark" />
-                </div>
-                <h2 className="text-ink font-display text-xl tracking-wider">
+              <div className="relative z-10 text-center mb-4">
+                <p className="text-gold text-[10px] tracking-[0.25em] font-serif">
+                  故宫私人馆藏展
+                </p>
+                <h2 className="text-ink font-display text-xl mt-1 tracking-wider">
                   勘验纪念卡
                 </h2>
-
-                {/* Interest seal */}
-                <div
-                  className="absolute right-5 top-8 w-12 h-12 rounded-full border-[1.5px] flex flex-col items-center justify-center rotate-6"
-                  style={{ borderColor: profile.accent, color: profile.accent }}
-                >
-                  <span className="absolute inset-[2px] rounded-full border border-current opacity-30" />
-                  <span className="font-display text-[14px] leading-none">
-                    {profile.seal}
-                  </span>
-                  <span className="text-[7px] tracking-wider mt-0.5">
-                    {profile.sealSub}
-                  </span>
-                </div>
-              </div>
-
-              {/* Decorative divider */}
-              <div className="relative z-10 flex items-center gap-2 px-8 mb-5">
-                <div className="flex-1 h-px bg-scroll-line" />
-                <span className="text-ink-faint text-[9px] tracking-[0.15em]">
-                  {interestTag}档案
-                </span>
-                <div className="flex-1 h-px bg-scroll-line" />
+                <div className="mt-2 mx-auto w-8 h-px bg-scroll-line" />
               </div>
 
               {/* Medal grid */}
-              <div className="relative z-10 px-10">
-                <div className="grid grid-cols-3 gap-3">
-                  {GRID_ITEMS.map((item) => {
-                    const unlocked = isNarrativeUnlocked(item.id)
-                    return (
-                      <div
-                        key={item.id}
-                        className="aspect-square flex items-center justify-center"
-                      >
+              <div className="relative z-10 grid grid-cols-3 gap-2 mb-4">
+                {GRID_ITEMS.map((item) => {
+                  const unlocked = isNarrativeUnlocked(item.id)
+                  return (
+                    <div
+                      key={item.id}
+                      className="aspect-square flex items-center justify-center"
+                    >
+                      {unlocked ? (
                         <img
                           src={item.medalPath}
                           alt={item.label}
-                          className={`w-full h-full object-contain ${
-                            unlocked ? '' : 'grayscale opacity-30'
-                          }`}
+                          className="w-full h-full object-contain"
                           draggable={false}
                         />
-                      </div>
-                    )
-                  })}
-                </div>
+                      ) : (
+                        <div
+                          className="w-[78%] h-[78%] rounded-full flex items-center justify-center"
+                          style={{
+                            border: '1px dashed rgba(43,41,38,0.16)',
+                          }}
+                        >
+                          <span className="text-ink-faint/30 text-sm font-display select-none">
+                            ?
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
 
               {/* Stats */}
-              <div className="relative z-10 flex justify-center gap-8 mt-6 mb-5">
+              <div className="relative z-10 flex justify-center gap-6 mb-4">
                 <div className="text-center">
                   <div className="text-ink font-display text-2xl font-bold">
                     {posterSpotCount}
@@ -552,23 +440,20 @@ export default function Complete() {
                 </div>
               </div>
 
-              {/* Personalized caption */}
-              <p className="relative z-10 text-ink-dim text-[12px] text-center leading-relaxed px-10">
-                {profile.posterCaption}
+              {/* Caption */}
+              <p className="relative z-10 text-ink-dim text-[12px] text-center leading-relaxed px-2">
+                我在故宫完成了 {posterSpotCount} 处历史碎片的溯源修复，
+                <br />
+                这是我留给紫禁城的数字印记。
               </p>
 
               {/* Footer */}
-              <div className="absolute bottom-6 left-0 right-0 z-10">
-                <div className="flex items-center gap-2 px-8">
-                  <div className="flex-1 h-px bg-scroll-line" />
-                  <span className="text-ink-faint text-[9px] font-serif tracking-wider">
-                    叙境 Xujing
-                  </span>
-                  <div className="flex-1 h-px bg-scroll-line" />
-                </div>
-                <p className="text-center text-[8px] text-ink-faint/60 mt-2 tracking-wider">
-                  故宫叙境 · 数字文旅勘验
-                </p>
+              <div className="relative z-10 mt-4 flex items-center gap-2">
+                <div className="flex-1 h-px bg-scroll-line" />
+                <span className="text-ink-faint text-[9px] font-serif tracking-wider">
+                  叙境 Xujing
+                </span>
+                <div className="flex-1 h-px bg-scroll-line" />
               </div>
             </div>
 
